@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Random Match Preview</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+    <style>
+      .preview-panel {
+        position: absolute;
+        top: 18px;
+        left: 18px;
+        z-index: 4;
+        display: grid;
+        gap: 8px;
+        max-width: min(420px, calc(100vw - 36px));
+        padding: 12px;
+        border-radius: 8px;
+        background: rgba(16, 17, 20, 0.72);
+        color: rgba(255, 255, 255, 0.82);
+        backdrop-filter: blur(16px);
+      }
+
+      .preview-panel strong {
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="screen">
+      <section class="call-stage">
+        <div class="remote-video">
+          <div class="state" id="state">准备开始随机交友</div>
+        </div>
+        <video id="localVideo" class="local-video" autoplay playsinline muted></video>
+        <div id="localFallback" class="local-video local-fallback">本地预览</div>
+        <div class="preview-panel">
+          <strong>静态预览模式</strong>
+          <span>点击“随机匹配”会请求摄像头/麦克风并模拟匹配状态。真实后端需要 Go、MongoDB、Redis 后再启动。</span>
+        </div>
+      </section>
+
+      <nav class="toolbar" aria-label="match controls">
+        <button id="videoButton" class="active">视讯</button>
+        <button id="voiceButton">语音</button>
+        <button id="matchButton" class="primary">随机匹配</button>
+      </nav>
+    </main>
+
+    <script>
+      const state = document.getElementById('state')
+      const localVideo = document.getElementById('localVideo')
+      const localFallback = document.getElementById('localFallback')
+      const videoButton = document.getElementById('videoButton')
+      const voiceButton = document.getElementById('voiceButton')
+      const matchButton = document.getElementById('matchButton')
+      let mode = 'video'
+      let stream = null
+
+      function setMode(nextMode) {
+        mode = nextMode
+        videoButton.classList.toggle('active', mode === 'video')
+        voiceButton.classList.toggle('active', mode === 'voice')
+      }
+
+      videoButton.addEventListener('click', () => setMode('video'))
+      voiceButton.addEventListener('click', () => setMode('voice'))
+
+      matchButton.addEventListener('click', async () => {
+        matchButton.disabled = true
+        matchButton.textContent = '匹配中'
+        state.textContent = '正在寻找在线用户'
+        try {
+          if (!navigator.mediaDevices?.getUserMedia) {
+            throw new Error('当前浏览器不支持摄像头/麦克风 API')
+          }
+          stream?.getTracks().forEach((track) => track.stop())
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: mode === 'video',
+            audio: true
+          })
+          localVideo.srcObject = stream
+          localVideo.style.display = 'block'
+          localFallback.style.display = 'none'
+          setTimeout(() => {
+            state.textContent = '已匹配，等待真实 signaling 服务'
+            matchButton.disabled = false
+            matchButton.textContent = '重新匹配'
+          }, 900)
+        } catch (error) {
+          localVideo.style.display = 'none'
+          localFallback.style.display = 'grid'
+          state.textContent = mediaErrorText(error)
+          matchButton.disabled = false
+          matchButton.textContent = '随机匹配'
+        }
+      })
+
+      function mediaErrorText(error) {
+        const name = error?.name ?? ''
+        if (name === 'NotAllowedError') return '浏览器已拒绝摄像头或麦克风权限'
+        if (name === 'NotFoundError') return '没有找到可用的摄像头或麦克风'
+        if (name === 'NotReadableError') return '摄像头或麦克风正被其他应用占用'
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+          return '摄像头/麦克风需要 HTTPS 或 localhost'
+        }
+        return error?.message || '无法取得摄像头或麦克风权限'
+      }
+    </script>
+  </body>
+</html>

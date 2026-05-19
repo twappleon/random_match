@@ -1,0 +1,22 @@
+.DS_Store
+.env
+*.log
+
+# Go
+backend/bin/
+backend/tmp/
+
+# Node
+apps/h5/node_modules/
+apps/h5/dist/
+
+# Flutter
+apps/mobile/.dart_tool/
+apps/mobile/build/
+apps/mobile/.flutter-plugins
+apps/mobile/.flutter-plugins-dependencies
+apps/mobile/.packages
+
+# IDE
+.idea/
+.vscode/
