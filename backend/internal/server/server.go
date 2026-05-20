@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/bson"
@@ -38,20 +39,30 @@ func New(cfg config.Config, db *store.Mongo, cache *store.Redis) *Server {
 }
 
 func (s *Server) Routes() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", s.health)
-	mux.HandleFunc("POST /api/v1/auth/anonymous", s.anonymousAuth)
-	mux.HandleFunc("POST /api/v1/match/join", s.requireAuth(s.joinMatch))
-	mux.HandleFunc("POST /api/v1/match/leave", s.requireAuth(s.leaveMatch))
-	mux.HandleFunc("GET /api/v1/ws", s.ws)
-	return s.requestLog(s.cors(mux))
+	gin.SetMode(gin.ReleaseMode)
+
+	router := gin.New()
+	router.Use(s.requestLog(), s.cors(), gin.Recovery())
+
+	router.GET("/health", s.health)
+
+	v1 := router.Group("/api/v1")
+	v1.POST("/auth/anonymous", s.anonymousAuth)
+	v1.GET("/ws", s.ws)
+
+	auth := v1.Group("")
+	auth.Use(s.requireAuth())
+	auth.POST("/match/join", s.joinMatch)
+	auth.POST("/match/leave", s.leaveMatch)
+
+	return router
 }
 
-func (s *Server) health(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+func (s *Server) health(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
-func (s *Server) anonymousAuth(w http.ResponseWriter, r *http.Request) {
+func (s *Server) anonymousAuth(c *gin.Context) {
 	now := time.Now().UTC()
 	user := model.User{
 		ID:          newID(),
@@ -60,42 +71,43 @@ func (s *Server) anonymousAuth(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:   now,
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 	_, err := s.db.DB.Collection("users").InsertOne(ctx, user)
 	if err != nil {
 		log.Printf("auth anonymous failed user_id=%s err=%v", user.ID, err)
-		writeError(w, http.StatusInternalServerError, "create user failed")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "create user failed"})
 		return
 	}
 
 	token, err := s.signToken(user.ID)
 	if err != nil {
 		log.Printf("auth sign token failed user_id=%s err=%v", user.ID, err)
-		writeError(w, http.StatusInternalServerError, "sign token failed")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "sign token failed"})
 		return
 	}
 
 	log.Printf("auth anonymous ok user_id=%s", user.ID)
-	writeJSON(w, http.StatusOK, map[string]any{
+	c.JSON(http.StatusOK, gin.H{
 		"token": token,
 		"user":  user,
 	})
 }
 
-func (s *Server) joinMatch(w http.ResponseWriter, r *http.Request, userID string) {
+func (s *Server) joinMatch(c *gin.Context) {
+	userID := userIDFromContext(c)
 	var req struct {
 		Mode   model.MatchMode `json:"mode"`
 		Region string          `json:"region"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("match join invalid_json user_id=%s err=%v", userID, err)
-		writeError(w, http.StatusBadRequest, "invalid json")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
 		return
 	}
 	if req.Mode != model.MatchModeVideo && req.Mode != model.MatchModeVoice {
 		log.Printf("match join invalid_mode user_id=%s mode=%q", userID, req.Mode)
-		writeError(w, http.StatusBadRequest, "mode must be video or voice")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "mode must be video or voice"})
 		return
 	}
 	if strings.TrimSpace(req.Region) == "" {
@@ -103,7 +115,7 @@ func (s *Server) joinMatch(w http.ResponseWriter, r *http.Request, userID string
 	}
 
 	queueKey := "match:queue:" + string(req.Mode) + ":" + req.Region
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	partnerID, err := s.cache.Client.LPop(ctx, queueKey).Result()
@@ -112,23 +124,23 @@ func (s *Server) joinMatch(w http.ResponseWriter, r *http.Request, userID string
 		payload, _ := json.Marshal(ticket)
 		if err := s.cache.Client.RPush(ctx, queueKey, payload).Err(); err != nil {
 			log.Printf("match queue push failed user_id=%s mode=%s region=%s err=%v", userID, req.Mode, req.Region, err)
-			writeError(w, http.StatusInternalServerError, "join queue failed")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "join queue failed"})
 			return
 		}
 		log.Printf("match waiting user_id=%s mode=%s region=%s queue=%s", userID, req.Mode, req.Region, queueKey)
-		writeJSON(w, http.StatusAccepted, map[string]any{"status": "waiting"})
+		c.JSON(http.StatusAccepted, gin.H{"status": "waiting"})
 		return
 	}
 	if err != nil {
 		log.Printf("match pop failed user_id=%s mode=%s region=%s err=%v", userID, req.Mode, req.Region, err)
-		writeError(w, http.StatusInternalServerError, "match failed")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
 		return
 	}
 
 	var ticket model.MatchTicket
 	if err := json.Unmarshal([]byte(partnerID), &ticket); err != nil || ticket.UserID == userID {
 		log.Printf("match invalid_ticket user_id=%s mode=%s region=%s err=%v same_user=%t", userID, req.Mode, req.Region, err, ticket.UserID == userID)
-		writeJSON(w, http.StatusAccepted, map[string]any{"status": "waiting"})
+		c.JSON(http.StatusAccepted, gin.H{"status": "waiting"})
 		return
 	}
 
@@ -136,7 +148,7 @@ func (s *Server) joinMatch(w http.ResponseWriter, r *http.Request, userID string
 	log.Printf("match paired room_id=%s user_id=%s peer_id=%s mode=%s region=%s", roomID, userID, ticket.UserID, req.Mode, req.Region)
 	s.hub.Notify(ticket.UserID, SignalMessage{Type: "matched", RoomID: roomID, PeerID: userID, Mode: string(req.Mode), Initiator: false})
 	s.hub.Notify(userID, SignalMessage{Type: "matched", RoomID: roomID, PeerID: ticket.UserID, Mode: string(req.Mode), Initiator: true})
-	writeJSON(w, http.StatusOK, map[string]any{
+	c.JSON(http.StatusOK, gin.H{
 		"status":    "matched",
 		"roomId":    roomID,
 		"peerId":    ticket.UserID,
@@ -144,40 +156,41 @@ func (s *Server) joinMatch(w http.ResponseWriter, r *http.Request, userID string
 	})
 }
 
-func (s *Server) leaveMatch(w http.ResponseWriter, r *http.Request, userID string) {
+func (s *Server) leaveMatch(c *gin.Context) {
+	userID := userIDFromContext(c)
 	// For production, store each user's active queue key separately and remove exactly that ticket.
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 	_ = s.cache.Client.Set(ctx, "match:left:"+userID, "1", 2*time.Minute).Err()
 	log.Printf("match leave user_id=%s", userID)
-	writeJSON(w, http.StatusOK, map[string]string{"status": "left"})
+	c.JSON(http.StatusOK, gin.H{"status": "left"})
 }
 
-func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
-	token := r.URL.Query().Get("token")
+func (s *Server) ws(c *gin.Context) {
+	token := c.Query("token")
 	userID, err := s.verifyToken(token)
 	if err != nil {
-		log.Printf("ws auth failed origin=%s err=%v", r.Header.Get("Origin"), err)
-		writeError(w, http.StatusUnauthorized, "invalid token")
+		log.Printf("ws auth failed origin=%s err=%v", c.Request.Header.Get("Origin"), err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 		return
 	}
 
-	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+	conn, err := websocket.Accept(c.Writer, c.Request, &websocket.AcceptOptions{
 		OriginPatterns: s.cfg.CORSOrigins,
 	})
 	if err != nil {
-		log.Printf("ws accept failed user_id=%s origin=%s err=%v", userID, r.Header.Get("Origin"), err)
+		log.Printf("ws accept failed user_id=%s origin=%s err=%v", userID, c.Request.Header.Get("Origin"), err)
 		return
 	}
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
-	log.Printf("ws connected user_id=%s origin=%s", userID, r.Header.Get("Origin"))
+	log.Printf("ws connected user_id=%s origin=%s", userID, c.Request.Header.Get("Origin"))
 	client := s.hub.Register(userID, conn)
 	defer func() {
 		s.hub.Unregister(userID, client)
 		log.Printf("ws disconnected user_id=%s", userID)
 	}()
-	client.ReadLoop(r.Context(), s.hub)
+	client.ReadLoop(c.Request.Context(), s.hub)
 }
 
 func (s *Server) signToken(userID string) (string, error) {
@@ -211,67 +224,63 @@ func (s *Server) verifyToken(raw string) (string, error) {
 	return sub, nil
 }
 
-func (s *Server) requireAuth(next func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		raw := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+func (s *Server) requireAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		raw := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
 		userID, err := s.verifyToken(raw)
 		if err != nil {
-			writeError(w, http.StatusUnauthorized, "unauthorized")
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 			return
 		}
-		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
 		defer cancel()
 		if err := s.db.DB.Collection("users").FindOne(ctx, bson.M{"_id": userID}).Err(); err != nil {
-			writeError(w, http.StatusUnauthorized, "user not found")
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
 			return
 		}
-		next(w, r, userID)
+		c.Set("userID", userID)
+		c.Next()
 	}
 }
 
-func (s *Server) cors(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		origin := r.Header.Get("Origin")
+func userIDFromContext(c *gin.Context) string {
+	userID, _ := c.Get("userID")
+	value, _ := userID.(string)
+	return value
+}
+
+func (s *Server) cors() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		origin := c.GetHeader("Origin")
 		for _, allowed := range s.cfg.CORSOrigins {
 			if origin == allowed {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				w.Header().Set("Vary", "Origin")
+				c.Header("Access-Control-Allow-Origin", origin)
+				c.Header("Vary", "Origin")
 				break
 			}
 		}
-		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
+		c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
-		next.ServeHTTP(w, r)
-	})
+		c.Next()
+	}
 }
 
-type statusRecorder struct {
-	http.ResponseWriter
-	status int
-}
-
-func (r *statusRecorder) WriteHeader(status int) {
-	r.status = status
-	r.ResponseWriter.WriteHeader(status)
-}
-
-func (s *Server) requestLog(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func (s *Server) requestLog() gin.HandlerFunc {
+	return func(c *gin.Context) {
 		start := time.Now()
-		if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
-			log.Printf("http websocket start method=%s path=%s origin=%s remote=%s", r.Method, r.URL.Path, r.Header.Get("Origin"), r.RemoteAddr)
-			next.ServeHTTP(w, r)
-			log.Printf("http websocket end method=%s path=%s duration=%s origin=%s remote=%s", r.Method, r.URL.Path, time.Since(start).Round(time.Millisecond), r.Header.Get("Origin"), r.RemoteAddr)
+		if strings.EqualFold(c.GetHeader("Upgrade"), "websocket") {
+			log.Printf("http websocket start method=%s path=%s origin=%s remote=%s", c.Request.Method, c.Request.URL.Path, c.GetHeader("Origin"), c.ClientIP())
+			c.Next()
+			log.Printf("http websocket end method=%s path=%s duration=%s origin=%s remote=%s", c.Request.Method, c.Request.URL.Path, time.Since(start).Round(time.Millisecond), c.GetHeader("Origin"), c.ClientIP())
 			return
 		}
-		recorder := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
-		next.ServeHTTP(recorder, r)
-		log.Printf("http method=%s path=%s status=%d duration=%s origin=%s remote=%s", r.Method, r.URL.Path, recorder.status, time.Since(start).Round(time.Millisecond), r.Header.Get("Origin"), r.RemoteAddr)
-	})
+		c.Next()
+		log.Printf("http method=%s path=%s status=%d duration=%s origin=%s remote=%s", c.Request.Method, c.Request.URL.Path, c.Writer.Status(), time.Since(start).Round(time.Millisecond), c.GetHeader("Origin"), c.ClientIP())
+	}
 }
 
 func newID() string {
@@ -280,14 +289,4 @@ func newID() string {
 		return hex.EncodeToString([]byte(time.Now().Format(time.RFC3339Nano)))
 	}
 	return hex.EncodeToString(b[:])
-}
-
-func writeJSON(w http.ResponseWriter, status int, body any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(body)
-}
-
-func writeError(w http.ResponseWriter, status int, message string) {
-	writeJSON(w, status, map[string]string{"error": message})
 }
