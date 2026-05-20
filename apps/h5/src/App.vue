@@ -27,7 +27,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { anonymousAuth, joinMatch, type MatchMode, wsURL } from './api'
+import { anonymousAuth, joinMatch, verifySession, type MatchMode, wsURL } from './api'
 import { initAnalytics } from './firebase'
 
 type Status = 'idle' | 'waiting' | 'matched'
@@ -41,19 +41,27 @@ const ws = ref<WebSocket | null>(null)
 const localStream = ref<MediaStream | null>(null)
 const peer = ref<RTCPeerConnection | null>(null)
 const activePeerId = ref<string | null>(null)
+const pendingCandidates = ref<RTCIceCandidateInit[]>([])
 const remoteVideo = ref<HTMLVideoElement | null>(null)
 const localVideo = ref<HTMLVideoElement | null>(null)
 
 const stateText = computed(() => {
   const modeText = mode.value === 'video' ? '视讯' : '语音'
-  if (status.value === 'waiting') return `正在寻找${modeText}用户`
-  return `已选择${modeText}匹配`
+  if (status.value === 'waiting') return `正在寻找${modeText}用户…\n请让另一位用户在另一浏览器窗口点击「随机匹配」`
+  if (status.value === 'matched') return `已匹配，正在连接${modeText}…`
+  return `已选择${modeText}匹配，点击下方按钮开始`
 })
 
 initAnalytics()
 
+function clearToken() {
+  token.value = ''
+  localStorage.removeItem('token')
+}
+
 async function ensureAuth() {
-  if (token.value) return
+  if (token.value && (await verifySession(token.value))) return
+  clearToken()
   const auth = await anonymousAuth()
   token.value = auth.token
   localStorage.setItem('token', auth.token)
@@ -65,10 +73,12 @@ async function startMatch() {
   try {
     await ensureAuth()
     await openMedia()
-    await openSocket()
+    await openSocketWithAuth()
     const result = await joinMatch(token.value, mode.value)
     status.value = result.status === 'matched' ? 'matched' : 'waiting'
-    // Matched signaling (including createPeer for initiator) is handled only via WebSocket.
+    if (result.status === 'matched' && result.initiator && result.peerId) {
+      await createPeer(result.peerId)
+    }
   } catch (error) {
     errorText.value = toUserMessage(error)
   } finally {
@@ -102,6 +112,16 @@ async function openMedia() {
   if (localVideo.value) localVideo.value.srcObject = localStream.value
 }
 
+async function openSocketWithAuth() {
+  try {
+    await openSocket()
+  } catch {
+    clearToken()
+    await ensureAuth()
+    await openSocket()
+  }
+}
+
 function openSocket() {
   if (ws.value?.readyState === WebSocket.OPEN) return Promise.resolve()
   ws.value?.close()
@@ -122,7 +142,7 @@ function openSocket() {
 
     socket.onerror = () => {
       window.clearTimeout(failTimer)
-      reject(new Error('连接信令服务失败，请确认后端服务已启动'))
+      reject(new Error('连接信令服务失败，登录可能已过期，请重试'))
     }
 
     socket.onclose = () => {
@@ -143,10 +163,11 @@ function openSocket() {
         }
         if (msg.type === 'answer' && peer.value?.signalingState === 'have-local-offer') {
           await peer.value.setRemoteDescription(msg.data)
+          await flushCandidates()
           return
         }
-        if (msg.type === 'candidate' && peer.value?.remoteDescription) {
-          await peer.value.addIceCandidate(msg.data)
+        if (msg.type === 'candidate') {
+          await addRemoteCandidate(msg.data)
         }
       } catch (error) {
         errorText.value = toUserMessage(error)
@@ -159,7 +180,24 @@ function teardownPeer() {
   peer.value?.close()
   peer.value = null
   activePeerId.value = null
+  pendingCandidates.value = []
   if (remoteVideo.value) remoteVideo.value.srcObject = null
+}
+
+async function addRemoteCandidate(candidate: RTCIceCandidateInit) {
+  if (!peer.value?.remoteDescription) {
+    pendingCandidates.value.push(candidate)
+    return
+  }
+  await peer.value.addIceCandidate(candidate)
+}
+
+async function flushCandidates() {
+  if (!peer.value?.remoteDescription) return
+  for (const candidate of pendingCandidates.value) {
+    await peer.value.addIceCandidate(candidate)
+  }
+  pendingCandidates.value = []
 }
 
 async function createPeer(peerId: string) {
@@ -188,6 +226,7 @@ async function acceptOffer(peerId: string, offer: RTCSessionDescriptionInit) {
   localStream.value?.getTracks().forEach((track) => pc.addTrack(track, localStream.value!))
 
   await pc.setRemoteDescription(offer)
+  await flushCandidates()
   const answer = await pc.createAnswer()
   await pc.setLocalDescription(answer)
   send({ type: 'answer', peerId, data: pc.localDescription })

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -14,7 +13,6 @@ import (
 	"github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/bson"
 
 	"random-match/backend/internal/config"
@@ -52,6 +50,7 @@ func (s *Server) Routes() http.Handler {
 
 	auth := v1.Group("")
 	auth.Use(s.requireAuth())
+	auth.GET("/auth/session", s.authSession)
 	auth.POST("/match/join", s.joinMatch)
 	auth.POST("/match/leave", s.leaveMatch)
 
@@ -60,6 +59,10 @@ func (s *Server) Routes() http.Handler {
 
 func (s *Server) health(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+func (s *Server) authSession(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"userId": userIDFromContext(c)})
 }
 
 func (s *Server) anonymousAuth(c *gin.Context) {
@@ -118,40 +121,28 @@ func (s *Server) joinMatch(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	partnerID, err := s.cache.Client.LPop(ctx, queueKey).Result()
-	if errors.Is(err, redis.Nil) {
-		ticket := model.MatchTicket{UserID: userID, Mode: req.Mode, Region: req.Region, CreatedAt: time.Now().UTC()}
-		payload, _ := json.Marshal(ticket)
-		if err := s.cache.Client.RPush(ctx, queueKey, payload).Err(); err != nil {
-			log.Printf("match queue push failed user_id=%s mode=%s region=%s err=%v", userID, req.Mode, req.Region, err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "join queue failed"})
-			return
-		}
+	self := model.MatchTicket{UserID: userID, Mode: req.Mode, Region: req.Region, CreatedAt: time.Now().UTC()}
+	result, err := enqueueAndMatch(ctx, s.cache.Client, queueKey, self)
+	if err != nil {
+		log.Printf("match join failed user_id=%s mode=%s region=%s err=%v", userID, req.Mode, req.Region, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
+		return
+	}
+	if result.waiting {
 		log.Printf("match waiting user_id=%s mode=%s region=%s queue=%s", userID, req.Mode, req.Region, queueKey)
 		c.JSON(http.StatusAccepted, gin.H{"status": "waiting"})
 		return
 	}
-	if err != nil {
-		log.Printf("match pop failed user_id=%s mode=%s region=%s err=%v", userID, req.Mode, req.Region, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
-		return
-	}
 
-	var ticket model.MatchTicket
-	if err := json.Unmarshal([]byte(partnerID), &ticket); err != nil || ticket.UserID == userID {
-		log.Printf("match invalid_ticket user_id=%s mode=%s region=%s err=%v same_user=%t", userID, req.Mode, req.Region, err, ticket.UserID == userID)
-		c.JSON(http.StatusAccepted, gin.H{"status": "waiting"})
-		return
-	}
-
+	partner := result.partner
 	roomID := newID()
-	log.Printf("match paired room_id=%s user_id=%s peer_id=%s mode=%s region=%s", roomID, userID, ticket.UserID, req.Mode, req.Region)
-	s.hub.Notify(ticket.UserID, SignalMessage{Type: "matched", RoomID: roomID, PeerID: userID, Mode: string(req.Mode), Initiator: false})
-	s.hub.Notify(userID, SignalMessage{Type: "matched", RoomID: roomID, PeerID: ticket.UserID, Mode: string(req.Mode), Initiator: true})
+	log.Printf("match paired room_id=%s user_id=%s peer_id=%s mode=%s region=%s", roomID, userID, partner.UserID, req.Mode, req.Region)
+	s.hub.Notify(partner.UserID, SignalMessage{Type: "matched", RoomID: roomID, PeerID: userID, Mode: string(req.Mode), Initiator: false})
+	s.hub.Notify(userID, SignalMessage{Type: "matched", RoomID: roomID, PeerID: partner.UserID, Mode: string(req.Mode), Initiator: true})
 	c.JSON(http.StatusOK, gin.H{
 		"status":    "matched",
 		"roomId":    roomID,
-		"peerId":    ticket.UserID,
+		"peerId":    partner.UserID,
 		"initiator": true,
 	})
 }

@@ -26,7 +26,7 @@ func Load() Config {
 		RedisPassword: env("REDIS_PASSWORD", ""),
 		RedisDB:       envInt("REDIS_DB", 0),
 		JWTSecret:     env("JWT_SECRET", "dev-secret"),
-		CORSOrigins:   split(env("CORS_ORIGINS", "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174")),
+		CORSOrigins:   split(env("CORS_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost,http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1")),
 	}
 }
 
