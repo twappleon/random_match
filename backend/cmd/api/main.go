@@ -9,11 +9,20 @@ import (
 	"syscall"
 	"time"
 
+	_ "random-match/backend/docs"
 	"random-match/backend/internal/config"
 	"random-match/backend/internal/server"
 	"random-match/backend/internal/store"
 )
 
+// @title						Random Match API
+// @version					1.0
+// @description				Backend API for anonymous random voice/video matching and WebSocket signaling.
+// @BasePath					/
+// @securityDefinitions.apikey	BearerAuth
+// @in							header
+// @name						Authorization
+// @description				Type "Bearer " followed by a JWT token.
 func main() {
 	cfg := config.Load()
 	ctx := context.Background()

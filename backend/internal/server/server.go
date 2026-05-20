@@ -13,6 +13,8 @@ import (
 	"github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.mongodb.org/mongo-driver/bson"
 
 	"random-match/backend/internal/config"
@@ -43,6 +45,7 @@ func (s *Server) Routes() http.Handler {
 	router.Use(s.requestLog(), s.cors(), gin.Recovery())
 
 	router.GET("/health", s.health)
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	v1 := router.Group("/api/v1")
 	v1.POST("/auth/anonymous", s.anonymousAuth)
@@ -57,14 +60,41 @@ func (s *Server) Routes() http.Handler {
 	return router
 }
 
+// health godoc
+//
+//	@Summary		Health check
+//	@Description	Returns the backend service health status.
+//	@Tags			system
+//	@Produce		json
+//	@Success		200	{object}	healthResponse
+//	@Router			/health [get]
 func (s *Server) health(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
+// authSession godoc
+//
+//	@Summary		Verify current session
+//	@Description	Verifies the bearer token and returns the authenticated user id.
+//	@Tags			auth
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	authSessionResponse
+//	@Failure		401	{object}	errorResponse
+//	@Router			/api/v1/auth/session [get]
 func (s *Server) authSession(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"userId": userIDFromContext(c)})
 }
 
+// anonymousAuth godoc
+//
+//	@Summary		Create anonymous user
+//	@Description	Creates an anonymous user and returns a JWT for API access.
+//	@Tags			auth
+//	@Produce		json
+//	@Success		200	{object}	anonymousAuthResponse
+//	@Failure		500	{object}	errorResponse
+//	@Router			/api/v1/auth/anonymous [post]
 func (s *Server) anonymousAuth(c *gin.Context) {
 	now := time.Now().UTC()
 	user := model.User{
@@ -97,12 +127,24 @@ func (s *Server) anonymousAuth(c *gin.Context) {
 	})
 }
 
+// joinMatch godoc
+//
+//	@Summary		Join matchmaking queue
+//	@Description	Adds the current user to a voice or video matchmaking queue. Returns 202 while waiting or 200 when matched.
+//	@Tags			match
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			request	body		joinMatchRequest	true	"Match preferences"
+//	@Success		200		{object}	matchedResponse
+//	@Success		202		{object}	waitingMatchResponse
+//	@Failure		400		{object}	errorResponse
+//	@Failure		401		{object}	errorResponse
+//	@Failure		500		{object}	errorResponse
+//	@Router			/api/v1/match/join [post]
 func (s *Server) joinMatch(c *gin.Context) {
 	userID := userIDFromContext(c)
-	var req struct {
-		Mode   model.MatchMode `json:"mode"`
-		Region string          `json:"region"`
-	}
+	var req joinMatchRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("match join invalid_json user_id=%s err=%v", userID, err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
@@ -147,6 +189,16 @@ func (s *Server) joinMatch(c *gin.Context) {
 	})
 }
 
+// leaveMatch godoc
+//
+//	@Summary		Leave matchmaking queue
+//	@Description	Marks the current user as having left matchmaking.
+//	@Tags			match
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	leaveMatchResponse
+//	@Failure		401	{object}	errorResponse
+//	@Router			/api/v1/match/leave [post]
 func (s *Server) leaveMatch(c *gin.Context) {
 	userID := userIDFromContext(c)
 	// For production, store each user's active queue key separately and remove exactly that ticket.
@@ -157,6 +209,15 @@ func (s *Server) leaveMatch(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "left"})
 }
 
+// ws godoc
+//
+//	@Summary		Connect signaling WebSocket
+//	@Description	Upgrades to a WebSocket used for match and WebRTC signaling messages. Pass the JWT as the token query parameter.
+//	@Tags			signaling
+//	@Param			token	query	string	true	"JWT token"
+//	@Success		101		{string}	string	"Switching Protocols"
+//	@Failure		401		{object}	errorResponse
+//	@Router			/api/v1/ws [get]
 func (s *Server) ws(c *gin.Context) {
 	token := c.Query("token")
 	userID, err := s.verifyToken(token)

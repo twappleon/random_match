@@ -1,0 +1,236 @@
+basePath: /
+definitions:
+  internal_server.anonymousAuthResponse:
+    properties:
+      token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      user:
+        $ref: '#/definitions/random-match_backend_internal_model.User'
+    type: object
+  internal_server.authSessionResponse:
+    properties:
+      userId:
+        example: 4f6d8c2a7b1e4a9f8c0d2e3f5a6b7c8d
+        type: string
+    type: object
+  internal_server.errorResponse:
+    properties:
+      error:
+        example: unauthorized
+        type: string
+    type: object
+  internal_server.healthResponse:
+    properties:
+      status:
+        example: ok
+        type: string
+    type: object
+  internal_server.joinMatchRequest:
+    properties:
+      mode:
+        allOf:
+        - $ref: '#/definitions/random-match_backend_internal_model.MatchMode'
+        enum:
+        - video
+        - voice
+        example: video
+      region:
+        example: global
+        type: string
+    type: object
+  internal_server.leaveMatchResponse:
+    properties:
+      status:
+        example: left
+        type: string
+    type: object
+  internal_server.matchedResponse:
+    properties:
+      initiator:
+        example: true
+        type: boolean
+      peerId:
+        example: 5f6d8c2a7b1e4a9f8c0d2e3f5a6b7c8d
+        type: string
+      roomId:
+        example: f9b9fdc7110a4a5cb6924f2d936cd58a
+        type: string
+      status:
+        example: matched
+        type: string
+    type: object
+  internal_server.waitingMatchResponse:
+    properties:
+      status:
+        example: waiting
+        type: string
+    type: object
+  random-match_backend_internal_model.MatchMode:
+    enum:
+    - video
+    - voice
+    type: string
+    x-enum-varnames:
+    - MatchModeVideo
+    - MatchModeVoice
+  random-match_backend_internal_model.User:
+    properties:
+      avatarUrl:
+        type: string
+      createdAt:
+        type: string
+      displayName:
+        type: string
+      firebaseUid:
+        type: string
+      id:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: Backend API for anonymous random voice/video matching and WebSocket
+    signaling.
+  title: Random Match API
+  version: "1.0"
+paths:
+  /api/v1/auth/anonymous:
+    post:
+      description: Creates an anonymous user and returns a JWT for API access.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_server.anonymousAuthResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server.errorResponse'
+      summary: Create anonymous user
+      tags:
+      - auth
+  /api/v1/auth/session:
+    get:
+      description: Verifies the bearer token and returns the authenticated user id.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_server.authSessionResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Verify current session
+      tags:
+      - auth
+  /api/v1/match/join:
+    post:
+      consumes:
+      - application/json
+      description: Adds the current user to a voice or video matchmaking queue. Returns
+        202 while waiting or 200 when matched.
+      parameters:
+      - description: Match preferences
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server.joinMatchRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_server.matchedResponse'
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/internal_server.waitingMatchResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server.errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_server.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Join matchmaking queue
+      tags:
+      - match
+  /api/v1/match/leave:
+    post:
+      description: Marks the current user as having left matchmaking.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_server.leaveMatchResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Leave matchmaking queue
+      tags:
+      - match
+  /api/v1/ws:
+    get:
+      description: Upgrades to a WebSocket used for match and WebRTC signaling messages.
+        Pass the JWT as the token query parameter.
+      parameters:
+      - description: JWT token
+        in: query
+        name: token
+        required: true
+        type: string
+      responses:
+        "101":
+          description: Switching Protocols
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_server.errorResponse'
+      summary: Connect signaling WebSocket
+      tags:
+      - signaling
+  /health:
+    get:
+      description: Returns the backend service health status.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_server.healthResponse'
+      summary: Health check
+      tags:
+      - system
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer " followed by a JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
