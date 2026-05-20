@@ -40,6 +40,7 @@ const token = ref(localStorage.getItem('token') ?? '')
 const ws = ref<WebSocket | null>(null)
 const localStream = ref<MediaStream | null>(null)
 const peer = ref<RTCPeerConnection | null>(null)
+const activePeerId = ref<string | null>(null)
 const remoteVideo = ref<HTMLVideoElement | null>(null)
 const localVideo = ref<HTMLVideoElement | null>(null)
 
@@ -67,9 +68,7 @@ async function startMatch() {
     await openSocket()
     const result = await joinMatch(token.value, mode.value)
     status.value = result.status === 'matched' ? 'matched' : 'waiting'
-    if (result.status === 'matched' && result.peerId && result.initiator) {
-      await createPeer(result.peerId)
-    }
+    // Matched signaling (including createPeer for initiator) is handled only via WebSocket.
   } catch (error) {
     errorText.value = toUserMessage(error)
   } finally {
@@ -131,33 +130,67 @@ function openSocket() {
     }
 
     socket.onmessage = async (event) => {
-      const msg = JSON.parse(event.data)
-      if (msg.type === 'matched') {
-        status.value = 'matched'
-        if (msg.initiator) await createPeer(msg.peerId)
+      try {
+        const msg = JSON.parse(event.data)
+        if (msg.type === 'matched') {
+          status.value = 'matched'
+          if (msg.initiator && msg.peerId) await createPeer(msg.peerId)
+          return
+        }
+        if (msg.type === 'offer' && msg.peerId) {
+          await acceptOffer(msg.peerId, msg.data)
+          return
+        }
+        if (msg.type === 'answer' && peer.value?.signalingState === 'have-local-offer') {
+          await peer.value.setRemoteDescription(msg.data)
+          return
+        }
+        if (msg.type === 'candidate' && peer.value?.remoteDescription) {
+          await peer.value.addIceCandidate(msg.data)
+        }
+      } catch (error) {
+        errorText.value = toUserMessage(error)
       }
-      if (msg.type === 'offer') await acceptOffer(msg.peerId, msg.data)
-      if (msg.type === 'answer') await peer.value?.setRemoteDescription(msg.data)
-      if (msg.type === 'candidate') await peer.value?.addIceCandidate(msg.data)
     }
   })
 }
 
+function teardownPeer() {
+  peer.value?.close()
+  peer.value = null
+  activePeerId.value = null
+  if (remoteVideo.value) remoteVideo.value.srcObject = null
+}
+
 async function createPeer(peerId: string) {
-  peer.value = buildPeer(peerId)
-  localStream.value?.getTracks().forEach((track) => peer.value?.addTrack(track, localStream.value!))
-  const offer = await peer.value.createOffer()
-  await peer.value.setLocalDescription(offer)
-  send({ type: 'offer', peerId, data: offer })
+  if (activePeerId.value === peerId && peer.value?.localDescription?.type === 'offer') return
+
+  teardownPeer()
+  activePeerId.value = peerId
+
+  const pc = buildPeer(peerId)
+  peer.value = pc
+  localStream.value?.getTracks().forEach((track) => pc.addTrack(track, localStream.value!))
+
+  const offer = await pc.createOffer()
+  await pc.setLocalDescription(offer)
+  send({ type: 'offer', peerId, data: pc.localDescription })
 }
 
 async function acceptOffer(peerId: string, offer: RTCSessionDescriptionInit) {
-  peer.value = buildPeer(peerId)
-  localStream.value?.getTracks().forEach((track) => peer.value?.addTrack(track, localStream.value!))
-  await peer.value.setRemoteDescription(offer)
-  const answer = await peer.value.createAnswer()
-  await peer.value.setLocalDescription(answer)
-  send({ type: 'answer', peerId, data: answer })
+  if (activePeerId.value === peerId && peer.value?.localDescription?.type === 'answer') return
+
+  teardownPeer()
+  activePeerId.value = peerId
+
+  const pc = buildPeer(peerId)
+  peer.value = pc
+  localStream.value?.getTracks().forEach((track) => pc.addTrack(track, localStream.value!))
+
+  await pc.setRemoteDescription(offer)
+  const answer = await pc.createAnswer()
+  await pc.setLocalDescription(answer)
+  send({ type: 'answer', peerId, data: pc.localDescription })
 }
 
 function buildPeer(peerId: string) {
@@ -197,7 +230,7 @@ function toUserMessage(error: unknown) {
 
 onBeforeUnmount(() => {
   ws.value?.close()
-  peer.value?.close()
+  teardownPeer()
   localStream.value?.getTracks().forEach((track) => track.stop())
 })
 </script>
