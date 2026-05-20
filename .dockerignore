@@ -1,0 +1,14 @@
+.git
+.DS_Store
+
+**/node_modules
+**/dist
+**/.vite
+
+backend/api
+backend/*.log
+
+apps/mobile/build
+apps/mobile/.dart_tool
+
+deploy/*.log

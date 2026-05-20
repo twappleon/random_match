@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -43,7 +44,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/match/join", s.requireAuth(s.joinMatch))
 	mux.HandleFunc("POST /api/v1/match/leave", s.requireAuth(s.leaveMatch))
 	mux.HandleFunc("GET /api/v1/ws", s.ws)
-	return s.cors(mux)
+	return s.requestLog(s.cors(mux))
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
@@ -63,16 +64,19 @@ func (s *Server) anonymousAuth(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	_, err := s.db.DB.Collection("users").InsertOne(ctx, user)
 	if err != nil {
+		log.Printf("auth anonymous failed user_id=%s err=%v", user.ID, err)
 		writeError(w, http.StatusInternalServerError, "create user failed")
 		return
 	}
 
 	token, err := s.signToken(user.ID)
 	if err != nil {
+		log.Printf("auth sign token failed user_id=%s err=%v", user.ID, err)
 		writeError(w, http.StatusInternalServerError, "sign token failed")
 		return
 	}
 
+	log.Printf("auth anonymous ok user_id=%s", user.ID)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"token": token,
 		"user":  user,
@@ -85,10 +89,12 @@ func (s *Server) joinMatch(w http.ResponseWriter, r *http.Request, userID string
 		Region string          `json:"region"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("match join invalid_json user_id=%s err=%v", userID, err)
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
 	if req.Mode != model.MatchModeVideo && req.Mode != model.MatchModeVoice {
+		log.Printf("match join invalid_mode user_id=%s mode=%q", userID, req.Mode)
 		writeError(w, http.StatusBadRequest, "mode must be video or voice")
 		return
 	}
@@ -105,24 +111,29 @@ func (s *Server) joinMatch(w http.ResponseWriter, r *http.Request, userID string
 		ticket := model.MatchTicket{UserID: userID, Mode: req.Mode, Region: req.Region, CreatedAt: time.Now().UTC()}
 		payload, _ := json.Marshal(ticket)
 		if err := s.cache.Client.RPush(ctx, queueKey, payload).Err(); err != nil {
+			log.Printf("match queue push failed user_id=%s mode=%s region=%s err=%v", userID, req.Mode, req.Region, err)
 			writeError(w, http.StatusInternalServerError, "join queue failed")
 			return
 		}
+		log.Printf("match waiting user_id=%s mode=%s region=%s queue=%s", userID, req.Mode, req.Region, queueKey)
 		writeJSON(w, http.StatusAccepted, map[string]any{"status": "waiting"})
 		return
 	}
 	if err != nil {
+		log.Printf("match pop failed user_id=%s mode=%s region=%s err=%v", userID, req.Mode, req.Region, err)
 		writeError(w, http.StatusInternalServerError, "match failed")
 		return
 	}
 
 	var ticket model.MatchTicket
 	if err := json.Unmarshal([]byte(partnerID), &ticket); err != nil || ticket.UserID == userID {
+		log.Printf("match invalid_ticket user_id=%s mode=%s region=%s err=%v same_user=%t", userID, req.Mode, req.Region, err, ticket.UserID == userID)
 		writeJSON(w, http.StatusAccepted, map[string]any{"status": "waiting"})
 		return
 	}
 
 	roomID := newID()
+	log.Printf("match paired room_id=%s user_id=%s peer_id=%s mode=%s region=%s", roomID, userID, ticket.UserID, req.Mode, req.Region)
 	s.hub.Notify(ticket.UserID, SignalMessage{Type: "matched", RoomID: roomID, PeerID: userID, Mode: string(req.Mode), Initiator: false})
 	s.hub.Notify(userID, SignalMessage{Type: "matched", RoomID: roomID, PeerID: ticket.UserID, Mode: string(req.Mode), Initiator: true})
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -138,6 +149,7 @@ func (s *Server) leaveMatch(w http.ResponseWriter, r *http.Request, userID strin
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 	_ = s.cache.Client.Set(ctx, "match:left:"+userID, "1", 2*time.Minute).Err()
+	log.Printf("match leave user_id=%s", userID)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "left"})
 }
 
@@ -145,6 +157,7 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 	userID, err := s.verifyToken(token)
 	if err != nil {
+		log.Printf("ws auth failed origin=%s err=%v", r.Header.Get("Origin"), err)
 		writeError(w, http.StatusUnauthorized, "invalid token")
 		return
 	}
@@ -153,12 +166,17 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 		OriginPatterns: s.cfg.CORSOrigins,
 	})
 	if err != nil {
+		log.Printf("ws accept failed user_id=%s origin=%s err=%v", userID, r.Header.Get("Origin"), err)
 		return
 	}
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
+	log.Printf("ws connected user_id=%s origin=%s", userID, r.Header.Get("Origin"))
 	client := s.hub.Register(userID, conn)
-	defer s.hub.Unregister(userID, client)
+	defer func() {
+		s.hub.Unregister(userID, client)
+		log.Printf("ws disconnected user_id=%s", userID)
+	}()
 	client.ReadLoop(r.Context(), s.hub)
 }
 
@@ -228,6 +246,31 @@ func (s *Server) cors(next http.Handler) http.Handler {
 			return
 		}
 		next.ServeHTTP(w, r)
+	})
+}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *statusRecorder) WriteHeader(status int) {
+	r.status = status
+	r.ResponseWriter.WriteHeader(status)
+}
+
+func (s *Server) requestLog(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+			log.Printf("http websocket start method=%s path=%s origin=%s remote=%s", r.Method, r.URL.Path, r.Header.Get("Origin"), r.RemoteAddr)
+			next.ServeHTTP(w, r)
+			log.Printf("http websocket end method=%s path=%s duration=%s origin=%s remote=%s", r.Method, r.URL.Path, time.Since(start).Round(time.Millisecond), r.Header.Get("Origin"), r.RemoteAddr)
+			return
+		}
+		recorder := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(recorder, r)
+		log.Printf("http method=%s path=%s status=%d duration=%s origin=%s remote=%s", r.Method, r.URL.Path, recorder.status, time.Since(start).Round(time.Millisecond), r.Header.Get("Origin"), r.RemoteAddr)
 	})
 }
 

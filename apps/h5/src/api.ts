@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8080'
+const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? 'http://localhost:8080' : window.location.origin)
 
 export type MatchMode = 'video' | 'voice'
 
@@ -13,11 +13,18 @@ export interface AuthResponse {
 
 export async function anonymousAuth(): Promise<AuthResponse> {
   const res = await fetch(`${API_BASE}/api/v1/auth/anonymous`, { method: 'POST' })
-  if (!res.ok) throw new Error('login failed')
+  if (!res.ok) throw new Error('匿名登录失败，请确认后端服务已启动')
   return res.json()
 }
 
-export async function joinMatch(token: string, mode: MatchMode, region = 'global') {
+export interface MatchResponse {
+  status: 'waiting' | 'matched'
+  roomId?: string
+  peerId?: string
+  initiator?: boolean
+}
+
+export async function joinMatch(token: string, mode: MatchMode, region = 'global'): Promise<MatchResponse> {
   const res = await fetch(`${API_BASE}/api/v1/match/join`, {
     method: 'POST',
     headers: {
@@ -26,7 +33,7 @@ export async function joinMatch(token: string, mode: MatchMode, region = 'global
     },
     body: JSON.stringify({ mode, region })
   })
-  if (!res.ok && res.status !== 202) throw new Error('join match failed')
+  if (!res.ok && res.status !== 202) throw new Error('加入匹配失败，请稍后重试')
   return res.json()
 }
 

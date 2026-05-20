@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"sync"
 	"time"
 
@@ -41,7 +42,9 @@ func (h *Hub) Register(userID string, conn *websocket.Conn) *Client {
 	}
 	h.mu.Lock()
 	h.clients[userID] = client
+	active := len(h.clients)
 	h.mu.Unlock()
+	log.Printf("hub register user_id=%s active_clients=%d", userID, active)
 	go client.WriteLoop()
 	return client
 }
@@ -52,7 +55,9 @@ func (h *Hub) Unregister(userID string, client *Client) {
 		delete(h.clients, userID)
 		close(client.send)
 	}
+	active := len(h.clients)
 	h.mu.Unlock()
+	log.Printf("hub unregister user_id=%s active_clients=%d", userID, active)
 }
 
 func (h *Hub) Notify(userID string, msg SignalMessage) {
@@ -60,11 +65,14 @@ func (h *Hub) Notify(userID string, msg SignalMessage) {
 	client := h.clients[userID]
 	h.mu.RUnlock()
 	if client == nil {
+		log.Printf("signal drop target_user_id=%s type=%s reason=no_client", userID, msg.Type)
 		return
 	}
 	select {
 	case client.send <- msg:
+		log.Printf("signal enqueue target_user_id=%s peer_id=%s type=%s room_id=%s", userID, msg.PeerID, msg.Type, msg.RoomID)
 	default:
+		log.Printf("signal drop target_user_id=%s peer_id=%s type=%s reason=send_queue_full", userID, msg.PeerID, msg.Type)
 	}
 }
 
@@ -72,13 +80,16 @@ func (c *Client) ReadLoop(ctx context.Context, hub *Hub) {
 	for {
 		_, payload, err := c.conn.Read(ctx)
 		if err != nil {
+			log.Printf("signal read end user_id=%s err=%v", c.userID, err)
 			return
 		}
 		var msg SignalMessage
 		if err := json.Unmarshal(payload, &msg); err != nil {
+			log.Printf("signal invalid_json user_id=%s err=%v", c.userID, err)
 			continue
 		}
 		if msg.PeerID != "" {
+			log.Printf("signal forward from_user_id=%s to_user_id=%s type=%s room_id=%s", c.userID, msg.PeerID, msg.Type, msg.RoomID)
 			hub.Notify(msg.PeerID, msg)
 		}
 	}
@@ -91,8 +102,10 @@ func (c *Client) WriteLoop() {
 		err := c.conn.Write(writeCtx, websocket.MessageText, mustJSON(msg))
 		cancel()
 		if err != nil {
+			log.Printf("signal write end user_id=%s err=%v", c.userID, err)
 			return
 		}
+		log.Printf("signal sent user_id=%s peer_id=%s type=%s room_id=%s", c.userID, msg.PeerID, msg.Type, msg.RoomID)
 	}
 }
 
