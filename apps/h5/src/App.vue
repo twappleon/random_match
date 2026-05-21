@@ -16,8 +16,8 @@
       <button :class="{ active: mode === 'voice' }" :aria-pressed="mode === 'voice'" @click="selectMode('voice')">
         语音{{ mode === 'voice' ? '中' : '' }}
       </button>
-      <button class="primary" :disabled="loading" @click="startMatch">
-        {{ loading ? '匹配中' : '随机匹配' }}
+      <button class="primary" :disabled="loading || status === 'waiting' || status === 'matched'" @click="startMatch">
+        {{ actionText }}
       </button>
     </nav>
 
@@ -50,6 +50,13 @@ const stateText = computed(() => {
   if (status.value === 'waiting') return `正在寻找${modeText}用户…\n请让另一位用户在另一浏览器窗口点击「随机匹配」`
   if (status.value === 'matched') return `已匹配，正在连接${modeText}…`
   return `已选择${modeText}匹配，点击下方按钮开始`
+})
+
+const actionText = computed(() => {
+  if (loading.value) return '匹配中'
+  if (status.value === 'waiting') return '等待中'
+  if (status.value === 'matched') return '已连线'
+  return '随机匹配'
 })
 
 initAnalytics()

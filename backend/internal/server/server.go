@@ -159,7 +159,7 @@ func (s *Server) joinMatch(c *gin.Context) {
 		req.Region = "global"
 	}
 
-	queueKey := "match:queue:" + string(req.Mode) + ":" + req.Region
+	queueKey := "match:queue:v2:" + string(req.Mode) + ":" + req.Region
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 

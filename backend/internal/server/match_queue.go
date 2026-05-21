@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	"github.com/redis/go-redis/v9"
@@ -10,16 +9,24 @@ import (
 	"random-match/backend/internal/model"
 )
 
-// Atomic join: RPUSH self, then if queue length >= 2, pop two and pair.
+// Atomic join: enqueue each user at most once, then pair the first two users.
 var matchJoinScript = redis.NewScript(`
+if redis.call('SISMEMBER', KEYS[2], ARGV[1]) == 1 then
+  return {0}
+end
+redis.call('SADD', KEYS[2], ARGV[1])
 redis.call('RPUSH', KEYS[1], ARGV[1])
 local len = redis.call('LLEN', KEYS[1])
 if len < 2 then
   return {0}
 end
-local t1 = redis.call('LPOP', KEYS[1])
-local t2 = redis.call('LPOP', KEYS[1])
-return {1, t1, t2}
+local u1 = redis.call('LPOP', KEYS[1])
+local u2 = redis.call('LPOP', KEYS[1])
+redis.call('SREM', KEYS[2], u1, u2)
+if u1 == ARGV[1] then
+  return {1, u2}
+end
+return {1, u1}
 `)
 
 type matchJoinResult struct {
@@ -28,12 +35,8 @@ type matchJoinResult struct {
 }
 
 func enqueueAndMatch(ctx context.Context, client *redis.Client, queueKey string, ticket model.MatchTicket) (matchJoinResult, error) {
-	payload, err := json.Marshal(ticket)
-	if err != nil {
-		return matchJoinResult{}, err
-	}
-
-	raw, err := matchJoinScript.Run(ctx, client, []string{queueKey}, payload).Result()
+	membersKey := queueKey + ":members"
+	raw, err := matchJoinScript.Run(ctx, client, []string{queueKey, membersKey}, ticket.UserID).Result()
 	if err != nil {
 		return matchJoinResult{}, err
 	}
@@ -50,45 +53,19 @@ func enqueueAndMatch(ctx context.Context, client *redis.Client, queueKey string,
 	if status == 0 {
 		return matchJoinResult{waiting: true}, nil
 	}
-	if len(items) != 3 {
+	if len(items) != 2 {
 		return matchJoinResult{}, errors.New("unexpected match script payload")
 	}
 
-	var first, second model.MatchTicket
-	if err := json.Unmarshal([]byte(items[1].(string)), &first); err != nil {
-		return matchJoinResult{}, err
-	}
-	if err := json.Unmarshal([]byte(items[2].(string)), &second); err != nil {
-		return matchJoinResult{}, err
-	}
-
-	if first.UserID == second.UserID {
-		// Duplicate tickets for the same user; keep one and wait.
-		one, _ := json.Marshal(first)
-		if err := client.RPush(ctx, queueKey, one).Err(); err != nil {
-			return matchJoinResult{}, err
-		}
+	partnerID, ok := items[1].(string)
+	if !ok || partnerID == "" || partnerID == ticket.UserID {
 		return matchJoinResult{waiting: true}, nil
 	}
 
-	partner := first
-	if first.UserID == ticket.UserID {
-		partner = second
-	} else if second.UserID != ticket.UserID {
-		// Neither popped ticket is the current user (should not happen); re-queue both.
-		p1, _ := json.Marshal(first)
-		p2, _ := json.Marshal(second)
-		_ = client.RPush(ctx, queueKey, p1, p2).Err()
-		return matchJoinResult{waiting: true}, nil
+	partner := model.MatchTicket{
+		UserID: partnerID,
+		Mode:   ticket.Mode,
+		Region: ticket.Region,
 	}
-
-	if partner.UserID == ticket.UserID {
-		one, _ := json.Marshal(first)
-		if err := client.RPush(ctx, queueKey, one).Err(); err != nil {
-			return matchJoinResult{}, err
-		}
-		return matchJoinResult{waiting: true}, nil
-	}
-
 	return matchJoinResult{partner: partner}, nil
 }
