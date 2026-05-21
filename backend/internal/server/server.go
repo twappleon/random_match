@@ -215,6 +215,7 @@ func (s *Server) joinMatch(c *gin.Context) {
 //	@Security		BearerAuth
 //	@Success		200	{object}	leaveMatchResponse
 //	@Failure		401	{object}	errorResponse
+//	@Failure		500	{object}	errorResponse
 //	@Router			/api/v1/match/leave [post]
 func (s *Server) leaveMatch(c *gin.Context) {
 	userID := userIDFromContext(c)
