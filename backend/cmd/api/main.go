@@ -27,13 +27,13 @@ func main() {
 	cfg := config.Load()
 	ctx := context.Background()
 
-	db, err := store.NewMongo(ctx, cfg.MongoURI, cfg.MongoDB)
+	db, err := connectMongo(ctx, cfg)
 	if err != nil {
 		log.Fatalf("connect mongo: %v", err)
 	}
 	defer db.Close(context.Background())
 
-	cache, err := store.NewRedis(ctx, cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
+	cache, err := connectRedis(ctx, cfg)
 	if err != nil {
 		log.Fatalf("connect redis: %v", err)
 	}
@@ -61,5 +61,41 @@ func main() {
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("shutdown: %v", err)
+	}
+}
+
+func connectMongo(ctx context.Context, cfg config.Config) (*store.Mongo, error) {
+	return retry(ctx, 60*time.Second, 2*time.Second, "mongo", func() (*store.Mongo, error) {
+		return store.NewMongo(ctx, cfg.MongoURI, cfg.MongoDB)
+	})
+}
+
+func connectRedis(ctx context.Context, cfg config.Config) (*store.Redis, error) {
+	return retry(ctx, 60*time.Second, 2*time.Second, "redis", func() (*store.Redis, error) {
+		return store.NewRedis(ctx, cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
+	})
+}
+
+func retry[T any](ctx context.Context, timeout, interval time.Duration, name string, connect func() (T, error)) (T, error) {
+	deadline := time.Now().Add(timeout)
+	var zero T
+	var lastErr error
+
+	for {
+		value, err := connect()
+		if err == nil {
+			return value, nil
+		}
+		lastErr = err
+		if time.Now().After(deadline) {
+			return zero, lastErr
+		}
+		log.Printf("connect %s failed, retrying in %s: %v", name, interval, err)
+
+		select {
+		case <-ctx.Done():
+			return zero, ctx.Err()
+		case <-time.After(interval):
+		}
 	}
 }
