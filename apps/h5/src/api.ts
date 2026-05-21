@@ -56,3 +56,15 @@ export function wsURL(token: string) {
   url.searchParams.set('token', token)
   return url.toString()
 }
+
+export function iceServers(): RTCIceServer[] {
+  const fallback: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }]
+  const raw = import.meta.env.VITE_ICE_SERVERS
+  if (!raw) return fallback
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : fallback
+  } catch {
+    return fallback
+  }
+}

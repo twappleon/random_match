@@ -27,7 +27,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { anonymousAuth, joinMatch, verifySession, type MatchMode, wsURL } from './api'
+import { anonymousAuth, iceServers, joinMatch, verifySession, type MatchMode, wsURL } from './api'
 import { initAnalytics } from './firebase'
 
 type Status = 'idle' | 'waiting' | 'matched'
@@ -241,7 +241,8 @@ async function acceptOffer(peerId: string, offer: RTCSessionDescriptionInit) {
 
 function buildPeer(peerId: string) {
   const pc = new RTCPeerConnection({
-    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    iceServers: iceServers(),
+    iceTransportPolicy: import.meta.env.VITE_FORCE_TURN === 'true' ? 'relay' : 'all'
   })
   pc.onicecandidate = (event) => {
     if (event.candidate) send({ type: 'candidate', peerId, data: event.candidate })

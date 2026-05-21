@@ -5,6 +5,8 @@ services:
       dockerfile: apps/h5/Dockerfile
       args:
         VITE_API_BASE: ${VITE_API_BASE:-}
+        VITE_ICE_SERVERS: ${VITE_ICE_SERVERS:-}
+        VITE_FORCE_TURN: ${VITE_FORCE_TURN:-}
     container_name: random-match-h5
     depends_on:
       backend:
@@ -73,6 +75,25 @@ services:
       timeout: 3s
       retries: 12
       start_period: 10s
+    restart: unless-stopped
+
+  turn:
+    image: coturn/coturn:4.6
+    container_name: random-match-turn
+    command:
+      - --no-cli
+      - --log-file=stdout
+      - --listening-port=3478
+      - --fingerprint
+      - --lt-cred-mech
+      - --realm=${TURN_REALM:-random-match}
+      - --user=${TURN_USERNAME:-random}:${TURN_PASSWORD:?TURN_PASSWORD is required}
+      - --external-ip=${TURN_EXTERNAL_IP:?TURN_EXTERNAL_IP is required}
+      - --no-tls
+      - --no-dtls
+    ports:
+      - "${TURN_PORT:-3478}:3478/tcp"
+      - "${TURN_PORT:-3478}:3478/udp"
     restart: unless-stopped
 
 volumes:
