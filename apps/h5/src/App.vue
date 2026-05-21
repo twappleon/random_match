@@ -1,12 +1,19 @@
 <template>
   <main class="screen">
-    <section class="call-stage">
+    <section ref="stage" class="call-stage">
       <div class="remote-video">
         <video ref="remoteVideo" autoplay playsinline></video>
         <div v-if="status !== 'matched'" class="state">{{ stateText }}</div>
       </div>
 
-      <video ref="localVideo" class="local-video" autoplay playsinline muted></video>
+      <div
+        ref="localPreview"
+        class="local-preview"
+        :style="localPreviewStyle"
+        @pointerdown="startPreviewDrag"
+      >
+        <video ref="localVideo" class="local-video" autoplay playsinline muted></video>
+      </div>
     </section>
 
     <nav class="toolbar" aria-label="match controls">
@@ -29,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { anonymousAuth, iceServers, joinMatch, leaveMatch, verifySession, type MatchMode, wsURL } from './api'
 import { initAnalytics } from './firebase'
 
@@ -47,8 +54,19 @@ const localStream = ref<MediaStream | null>(null)
 const peer = ref<RTCPeerConnection | null>(null)
 const activePeerId = ref<string | null>(null)
 const pendingCandidates = ref<RTCIceCandidateInit[]>([])
+const stage = ref<HTMLElement | null>(null)
+const localPreview = ref<HTMLElement | null>(null)
 const remoteVideo = ref<HTMLVideoElement | null>(null)
 const localVideo = ref<HTMLVideoElement | null>(null)
+const previewPosition = ref({ x: 0, y: 0 })
+const previewPositioned = ref(false)
+const previewDrag = ref<{
+  pointerId: number
+  startX: number
+  startY: number
+  originX: number
+  originY: number
+} | null>(null)
 
 const stateText = computed(() => {
   const modeText = mode.value === 'video' ? '视讯' : '语音'
@@ -62,6 +80,14 @@ const actionText = computed(() => {
   if (status.value === 'waiting') return '等待中'
   if (status.value === 'matched') return '已连线'
   return '随机匹配'
+})
+
+const localPreviewStyle = computed(() => {
+  if (!previewPositioned.value) return {}
+  return {
+    left: `${previewPosition.value.x}px`,
+    top: `${previewPosition.value.y}px`
+  }
 })
 
 initAnalytics()
@@ -139,6 +165,8 @@ async function openMedia() {
     audio: true
   })
   if (localVideo.value) localVideo.value.srcObject = localStream.value
+  await nextTick()
+  ensurePreviewPosition()
 }
 
 async function openSocketWithAuth() {
@@ -225,6 +253,70 @@ function stopLocalMedia() {
   localStream.value?.getTracks().forEach((track) => track.stop())
   localStream.value = null
   if (localVideo.value) localVideo.value.srcObject = null
+}
+
+function previewBounds() {
+  const stageRect = stage.value?.getBoundingClientRect()
+  const previewRect = localPreview.value?.getBoundingClientRect()
+  if (!stageRect || !previewRect) return null
+  return {
+    maxX: Math.max(0, stageRect.width - previewRect.width - 16),
+    maxY: Math.max(0, stageRect.height - previewRect.height - 16)
+  }
+}
+
+function clampPreviewPosition(x: number, y: number) {
+  const bounds = previewBounds()
+  if (!bounds) return { x, y }
+  return {
+    x: Math.min(Math.max(16, x), bounds.maxX),
+    y: Math.min(Math.max(16, y), bounds.maxY)
+  }
+}
+
+function ensurePreviewPosition() {
+  const bounds = previewBounds()
+  if (!bounds) return
+  if (!previewPositioned.value) {
+    previewPosition.value = { x: bounds.maxX, y: bounds.maxY }
+    previewPositioned.value = true
+    return
+  }
+  previewPosition.value = clampPreviewPosition(previewPosition.value.x, previewPosition.value.y)
+}
+
+function startPreviewDrag(event: PointerEvent) {
+  if (!localPreview.value || !previewPositioned.value) ensurePreviewPosition()
+  previewDrag.value = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    originX: previewPosition.value.x,
+    originY: previewPosition.value.y
+  }
+  localPreview.value?.setPointerCapture(event.pointerId)
+  window.addEventListener('pointermove', dragPreview)
+  window.addEventListener('pointerup', stopPreviewDrag)
+  window.addEventListener('pointercancel', stopPreviewDrag)
+}
+
+function dragPreview(event: PointerEvent) {
+  const drag = previewDrag.value
+  if (!drag || event.pointerId !== drag.pointerId) return
+  previewPosition.value = clampPreviewPosition(
+    drag.originX + event.clientX - drag.startX,
+    drag.originY + event.clientY - drag.startY
+  )
+}
+
+function stopPreviewDrag(event: PointerEvent) {
+  const drag = previewDrag.value
+  if (!drag || event.pointerId !== drag.pointerId) return
+  localPreview.value?.releasePointerCapture(event.pointerId)
+  previewDrag.value = null
+  window.removeEventListener('pointermove', dragPreview)
+  window.removeEventListener('pointerup', stopPreviewDrag)
+  window.removeEventListener('pointercancel', stopPreviewDrag)
 }
 
 function teardownPeer() {
@@ -341,8 +433,16 @@ function toUserMessage(error: unknown) {
 }
 
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', ensurePreviewPosition)
+  window.removeEventListener('pointermove', dragPreview)
+  window.removeEventListener('pointerup', stopPreviewDrag)
+  window.removeEventListener('pointercancel', stopPreviewDrag)
   closeSocket()
   teardownPeer()
   stopLocalMedia()
+})
+
+onMounted(() => {
+  window.addEventListener('resize', ensurePreviewPosition)
 })
 </script>
