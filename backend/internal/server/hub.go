@@ -89,8 +89,10 @@ func (c *Client) ReadLoop(ctx context.Context, hub *Hub) {
 			continue
 		}
 		if msg.PeerID != "" {
-			log.Printf("signal forward from_user_id=%s to_user_id=%s type=%s room_id=%s", c.userID, msg.PeerID, msg.Type, msg.RoomID)
-			hub.Notify(msg.PeerID, msg)
+			targetUserID := msg.PeerID
+			msg.PeerID = c.userID
+			log.Printf("signal forward from_user_id=%s to_user_id=%s type=%s room_id=%s", c.userID, targetUserID, msg.Type, msg.RoomID)
+			hub.Notify(targetUserID, msg)
 		}
 	}
 }
