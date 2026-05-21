@@ -16,7 +16,7 @@
       <button :class="{ active: mode === 'voice' }" :aria-pressed="mode === 'voice'" @click="selectMode('voice')">
         语音{{ mode === 'voice' ? '中' : '' }}
       </button>
-      <button class="primary" :disabled="loading || status === 'waiting' || status === 'matched'" @click="startMatch">
+      <button class="primary" :disabled="loading || status === 'waiting'" @click="startMatch">
         {{ actionText }}
       </button>
     </nav>
@@ -78,6 +78,7 @@ async function startMatch() {
   loading.value = true
   errorText.value = ''
   try {
+    resetCall()
     await ensureAuth()
     await openMedia()
     await openSocketWithAuth()
@@ -154,6 +155,7 @@ function openSocket() {
 
     socket.onclose = () => {
       if (ws.value === socket) ws.value = null
+      if (status.value === 'matched') resetCall('信令连接已断开，请重新匹配')
     }
 
     socket.onmessage = async (event) => {
@@ -175,6 +177,10 @@ function openSocket() {
         }
         if (msg.type === 'candidate') {
           await addRemoteCandidate(msg.data)
+          return
+        }
+        if (msg.type === 'peer-left') {
+          resetCall('对方已离开，请重新匹配')
         }
       } catch (error) {
         errorText.value = toUserMessage(error)
@@ -189,6 +195,12 @@ function teardownPeer() {
   activePeerId.value = null
   pendingCandidates.value = []
   if (remoteVideo.value) remoteVideo.value.srcObject = null
+}
+
+function resetCall(message = '') {
+  teardownPeer()
+  status.value = 'idle'
+  if (message) errorText.value = message
 }
 
 async function addRemoteCandidate(candidate: RTCIceCandidateInit) {
@@ -247,8 +259,23 @@ function buildPeer(peerId: string) {
   pc.onicecandidate = (event) => {
     if (event.candidate) send({ type: 'candidate', peerId, data: event.candidate })
   }
+  pc.onconnectionstatechange = () => {
+    if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+      resetCall('对方已断线，请重新匹配')
+    }
+  }
+  pc.oniceconnectionstatechange = () => {
+    if (['disconnected', 'failed', 'closed'].includes(pc.iceConnectionState)) {
+      resetCall('对方连接已中断，请重新匹配')
+    }
+  }
   pc.ontrack = (event) => {
-    if (remoteVideo.value) remoteVideo.value.srcObject = event.streams[0]
+    const [stream] = event.streams
+    if (remoteVideo.value) remoteVideo.value.srcObject = stream
+    event.track.onended = () => resetCall('对方已离开，请重新匹配')
+    event.track.onmute = () => {
+      if (pc.connectionState !== 'connected') resetCall('对方媒体已中断，请重新匹配')
+    }
   }
   return pc
 }

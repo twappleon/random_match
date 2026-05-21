@@ -179,6 +179,7 @@ func (s *Server) joinMatch(c *gin.Context) {
 	partner := result.partner
 	roomID := newID()
 	log.Printf("match paired room_id=%s user_id=%s peer_id=%s mode=%s region=%s", roomID, userID, partner.UserID, req.Mode, req.Region)
+	s.hub.Pair(userID, partner.UserID)
 	s.hub.Notify(partner.UserID, SignalMessage{Type: "matched", RoomID: roomID, PeerID: userID, Mode: string(req.Mode), Initiator: false})
 	s.hub.Notify(userID, SignalMessage{Type: "matched", RoomID: roomID, PeerID: partner.UserID, Mode: string(req.Mode), Initiator: true})
 	c.JSON(http.StatusOK, gin.H{

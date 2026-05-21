@@ -22,6 +22,7 @@ type SignalMessage struct {
 type Hub struct {
 	mu      sync.RWMutex
 	clients map[string]*Client
+	peers   map[string]string
 }
 
 type Client struct {
@@ -31,7 +32,10 @@ type Client struct {
 }
 
 func NewHub() *Hub {
-	return &Hub{clients: make(map[string]*Client)}
+	return &Hub{
+		clients: make(map[string]*Client),
+		peers:   make(map[string]string),
+	}
 }
 
 func (h *Hub) Register(userID string, conn *websocket.Conn) *Client {
@@ -55,9 +59,17 @@ func (h *Hub) Unregister(userID string, client *Client) {
 		delete(h.clients, userID)
 		close(client.send)
 	}
+	peerID := h.peers[userID]
+	delete(h.peers, userID)
+	if peerID != "" && h.peers[peerID] == userID {
+		delete(h.peers, peerID)
+	}
 	active := len(h.clients)
 	h.mu.Unlock()
 	log.Printf("hub unregister user_id=%s active_clients=%d", userID, active)
+	if peerID != "" {
+		h.Notify(peerID, SignalMessage{Type: "peer-left", PeerID: userID})
+	}
 }
 
 func (h *Hub) Notify(userID string, msg SignalMessage) {
@@ -74,6 +86,13 @@ func (h *Hub) Notify(userID string, msg SignalMessage) {
 	default:
 		log.Printf("signal drop target_user_id=%s peer_id=%s type=%s reason=send_queue_full", userID, msg.PeerID, msg.Type)
 	}
+}
+
+func (h *Hub) Pair(userID, peerID string) {
+	h.mu.Lock()
+	h.peers[userID] = peerID
+	h.peers[peerID] = userID
+	h.mu.Unlock()
 }
 
 func (c *Client) ReadLoop(ctx context.Context, hub *Hub) {
