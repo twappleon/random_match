@@ -80,7 +80,7 @@ button {
 
 .toolbar {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.4fr;
+  grid-template-columns: 1fr 1fr 1.25fr 0.9fr;
   gap: 10px;
   padding: 14px;
   background: rgba(12, 13, 16, 0.88);
@@ -107,6 +107,12 @@ button {
 .toolbar button.primary {
   background: #26c06f;
   color: #07150d;
+  font-weight: 800;
+}
+
+.toolbar button.danger {
+  background: #d94a4a;
+  color: #fff5f5;
   font-weight: 800;
 }
 

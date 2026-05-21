@@ -59,13 +59,11 @@ func (h *Hub) Unregister(userID string, client *Client) {
 		delete(h.clients, userID)
 		close(client.send)
 	}
-	peerID := h.peers[userID]
-	delete(h.peers, userID)
-	if peerID != "" && h.peers[peerID] == userID {
-		delete(h.peers, peerID)
-	}
-	active := len(h.clients)
 	h.mu.Unlock()
+	peerID := h.Unpair(userID)
+	h.mu.RLock()
+	active := len(h.clients)
+	h.mu.RUnlock()
 	log.Printf("hub unregister user_id=%s active_clients=%d", userID, active)
 	if peerID != "" {
 		h.Notify(peerID, SignalMessage{Type: "peer-left", PeerID: userID})
@@ -88,11 +86,29 @@ func (h *Hub) Notify(userID string, msg SignalMessage) {
 	}
 }
 
+func (h *Hub) IsOnline(userID string) bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.clients[userID] != nil
+}
+
 func (h *Hub) Pair(userID, peerID string) {
 	h.mu.Lock()
 	h.peers[userID] = peerID
 	h.peers[peerID] = userID
 	h.mu.Unlock()
+}
+
+func (h *Hub) Unpair(userID string) string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	peerID := h.peers[userID]
+	delete(h.peers, userID)
+	if peerID != "" && h.peers[peerID] == userID {
+		delete(h.peers, peerID)
+	}
+	return peerID
 }
 
 func (c *Client) ReadLoop(ctx context.Context, hub *Hub) {

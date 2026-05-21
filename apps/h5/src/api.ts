@@ -49,6 +49,14 @@ export async function joinMatch(token: string, mode: MatchMode, region = 'global
   return res.json()
 }
 
+export async function leaveMatch(token: string): Promise<void> {
+  const res = await fetch(`${apiBase()}/api/v1/match/leave`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error('退出失败，请稍后重试')
+}
+
 export function wsURL(token: string) {
   const url = new URL(apiBase())
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/redis/go-redis/v9"
 
@@ -68,4 +69,29 @@ func enqueueAndMatch(ctx context.Context, client *redis.Client, queueKey string,
 		Region: ticket.Region,
 	}
 	return matchJoinResult{partner: partner}, nil
+}
+
+func removeUserFromMatchQueues(ctx context.Context, client *redis.Client, userID string) error {
+	var cursor uint64
+	for {
+		keys, nextCursor, err := client.Scan(ctx, cursor, "match:queue:v2:*", 100).Result()
+		if err != nil {
+			return err
+		}
+		for _, key := range keys {
+			if strings.HasSuffix(key, ":members") {
+				continue
+			}
+			if err := client.LRem(ctx, key, 0, userID).Err(); err != nil {
+				return err
+			}
+			if err := client.SRem(ctx, key+":members", userID).Err(); err != nil {
+				return err
+			}
+		}
+		if nextCursor == 0 {
+			return nil
+		}
+		cursor = nextCursor
+	}
 }

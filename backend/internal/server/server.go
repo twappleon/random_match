@@ -177,6 +177,22 @@ func (s *Server) joinMatch(c *gin.Context) {
 	}
 
 	partner := result.partner
+	if !s.hub.IsOnline(partner.UserID) {
+		log.Printf("match stale_partner user_id=%s peer_id=%s mode=%s region=%s", userID, partner.UserID, req.Mode, req.Region)
+		self = model.MatchTicket{UserID: userID, Mode: req.Mode, Region: req.Region, CreatedAt: time.Now().UTC()}
+		if err := s.cache.Client.RPush(ctx, queueKey, self.UserID).Err(); err != nil {
+			log.Printf("match requeue failed user_id=%s mode=%s region=%s err=%v", userID, req.Mode, req.Region, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
+			return
+		}
+		if err := s.cache.Client.SAdd(ctx, queueKey+":members", self.UserID).Err(); err != nil {
+			log.Printf("match requeue member failed user_id=%s mode=%s region=%s err=%v", userID, req.Mode, req.Region, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
+			return
+		}
+		c.JSON(http.StatusAccepted, gin.H{"status": "waiting"})
+		return
+	}
 	roomID := newID()
 	log.Printf("match paired room_id=%s user_id=%s peer_id=%s mode=%s region=%s", roomID, userID, partner.UserID, req.Mode, req.Region)
 	s.hub.Pair(userID, partner.UserID)
@@ -202,10 +218,18 @@ func (s *Server) joinMatch(c *gin.Context) {
 //	@Router			/api/v1/match/leave [post]
 func (s *Server) leaveMatch(c *gin.Context) {
 	userID := userIDFromContext(c)
-	// For production, store each user's active queue key separately and remove exactly that ticket.
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
-	_ = s.cache.Client.Set(ctx, "match:left:"+userID, "1", 2*time.Minute).Err()
+
+	if err := removeUserFromMatchQueues(ctx, s.cache.Client, userID); err != nil {
+		log.Printf("match leave queue cleanup failed user_id=%s err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "leave match failed"})
+		return
+	}
+
+	if peerID := s.hub.Unpair(userID); peerID != "" {
+		s.hub.Notify(peerID, SignalMessage{Type: "peer-left", PeerID: userID})
+	}
 	log.Printf("match leave user_id=%s", userID)
 	c.JSON(http.StatusOK, gin.H{"status": "left"})
 }

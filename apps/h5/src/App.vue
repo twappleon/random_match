@@ -10,14 +10,17 @@
     </section>
 
     <nav class="toolbar" aria-label="match controls">
-      <button :class="{ active: mode === 'video' }" :aria-pressed="mode === 'video'" @click="selectMode('video')">
+      <button :class="{ active: mode === 'video' }" :aria-pressed="mode === 'video'" :disabled="loading || status !== 'idle'" @click="selectMode('video')">
         视讯{{ mode === 'video' ? '中' : '' }}
       </button>
-      <button :class="{ active: mode === 'voice' }" :aria-pressed="mode === 'voice'" @click="selectMode('voice')">
+      <button :class="{ active: mode === 'voice' }" :aria-pressed="mode === 'voice'" :disabled="loading || status !== 'idle'" @click="selectMode('voice')">
         语音{{ mode === 'voice' ? '中' : '' }}
       </button>
       <button class="primary" :disabled="loading || status === 'waiting'" @click="startMatch">
         {{ actionText }}
+      </button>
+      <button class="danger" :disabled="leaving || status === 'idle'" @click="leaveCall">
+        {{ leaving ? '退出中' : '退出' }}
       </button>
     </nav>
 
@@ -27,7 +30,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { anonymousAuth, iceServers, joinMatch, verifySession, type MatchMode, wsURL } from './api'
+import { anonymousAuth, iceServers, joinMatch, leaveMatch, verifySession, type MatchMode, wsURL } from './api'
 import { initAnalytics } from './firebase'
 
 type Status = 'idle' | 'waiting' | 'matched'
@@ -35,9 +38,11 @@ type Status = 'idle' | 'waiting' | 'matched'
 const mode = ref<MatchMode>('video')
 const status = ref<Status>('idle')
 const loading = ref(false)
+const leaving = ref(false)
 const errorText = ref('')
 const token = ref(localStorage.getItem('token') ?? '')
 const ws = ref<WebSocket | null>(null)
+const closingSocket = ref(false)
 const localStream = ref<MediaStream | null>(null)
 const peer = ref<RTCPeerConnection | null>(null)
 const activePeerId = ref<string | null>(null)
@@ -94,6 +99,22 @@ async function startMatch() {
   }
 }
 
+async function leaveCall() {
+  if (leaving.value || status.value === 'idle') return
+  leaving.value = true
+  errorText.value = ''
+  try {
+    if (token.value) await leaveMatch(token.value)
+  } catch (error) {
+    errorText.value = toUserMessage(error)
+  } finally {
+    closeSocket()
+    stopLocalMedia()
+    resetCall()
+    leaving.value = false
+  }
+}
+
 async function selectMode(nextMode: MatchMode) {
   if (mode.value === nextMode || loading.value) return
   mode.value = nextMode
@@ -112,7 +133,7 @@ async function openMedia() {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new Error('当前浏览器不支持摄像头/麦克风访问，请使用 HTTPS 或 localhost 打开页面')
   }
-  localStream.value?.getTracks().forEach((track) => track.stop())
+  stopLocalMedia()
   localStream.value = await navigator.mediaDevices.getUserMedia({
     video: mode.value === 'video',
     audio: true
@@ -155,6 +176,10 @@ function openSocket() {
 
     socket.onclose = () => {
       if (ws.value === socket) ws.value = null
+      if (closingSocket.value) {
+        closingSocket.value = false
+        return
+      }
       if (status.value === 'matched') resetCall('信令连接已断开，请重新匹配')
     }
 
@@ -187,6 +212,19 @@ function openSocket() {
       }
     }
   })
+}
+
+function closeSocket() {
+  const socket = ws.value
+  ws.value = null
+  closingSocket.value = Boolean(socket)
+  socket?.close()
+}
+
+function stopLocalMedia() {
+  localStream.value?.getTracks().forEach((track) => track.stop())
+  localStream.value = null
+  if (localVideo.value) localVideo.value.srcObject = null
 }
 
 function teardownPeer() {
@@ -303,8 +341,8 @@ function toUserMessage(error: unknown) {
 }
 
 onBeforeUnmount(() => {
-  ws.value?.close()
+  closeSocket()
   teardownPeer()
-  localStream.value?.getTracks().forEach((track) => track.stop())
+  stopLocalMedia()
 })
 </script>
