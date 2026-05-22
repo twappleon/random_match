@@ -14,6 +14,7 @@ RUN addgroup -S app && adduser -S app -G app
 
 WORKDIR /app
 COPY --from=builder /out/api /app/api
+RUN mkdir -p /app/snapshots && chown -R app:app /app/snapshots
 
 USER app
 EXPOSE 8080

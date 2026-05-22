@@ -165,6 +165,63 @@
                 }
             }
         },
+        "/api/v1/match/snapshot": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Saves a camera snapshot on the server after a match is created.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "match"
+                ],
+                "summary": "Save match snapshot",
+                "parameters": [
+                    {
+                        "description": "Snapshot payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server.snapshotRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server.snapshotResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server.errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server.errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/stats": {
             "get": {
                 "description": "Returns current online users, waiting users, and users in active chats.",
@@ -332,6 +389,48 @@
                 "status": {
                     "type": "string",
                     "example": "matched"
+                }
+            }
+        },
+        "internal_server.snapshotRequest": {
+            "type": "object",
+            "properties": {
+                "height": {
+                    "type": "integer",
+                    "example": 480
+                },
+                "image": {
+                    "type": "string",
+                    "example": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ..."
+                },
+                "mode": {
+                    "type": "string",
+                    "example": "video"
+                },
+                "peerId": {
+                    "type": "string",
+                    "example": "5f6d8c2a7b1e4a9f8c0d2e3f5a6b7c8d"
+                },
+                "roomId": {
+                    "type": "string",
+                    "example": "f9b9fdc7110a4a5cb6924f2d936cd58a"
+                },
+                "width": {
+                    "type": "integer",
+                    "example": 640
+                }
+            }
+        },
+        "internal_server.snapshotResponse": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "example": "/app/snapshots/2026-05-22/room-user.jpg"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "saved"
                 }
             }
         },

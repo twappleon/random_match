@@ -69,6 +69,27 @@ export async function leaveMatch(token: string): Promise<void> {
   if (!res.ok) throw new Error('退出失败，请稍后重试')
 }
 
+export interface SnapshotPayload {
+  roomId: string
+  peerId?: string
+  mode: MatchMode
+  image: string
+  width: number
+  height: number
+}
+
+export async function uploadMatchSnapshot(token: string, payload: SnapshotPayload): Promise<void> {
+  const res = await fetch(`${apiBase()}/api/v1/match/snapshot`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+  if (!res.ok) throw new Error('截图上传失败')
+}
+
 export function wsURL(token: string) {
   const url = new URL(apiBase())
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'

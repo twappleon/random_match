@@ -43,7 +43,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { anonymousAuth, fetchStats, iceServers, joinMatch, leaveMatch, verifySession, type MatchMode, wsURL } from './api'
+import { anonymousAuth, fetchStats, iceServers, joinMatch, leaveMatch, uploadMatchSnapshot, verifySession, type MatchMode, wsURL } from './api'
 import { initAnalytics } from './firebase'
 
 type Status = 'idle' | 'waiting' | 'matched'
@@ -75,6 +75,7 @@ const previewDrag = ref<{
   originX: number
   originY: number
 } | null>(null)
+const capturedSnapshotRooms = new Set<string>()
 
 const stateText = computed(() => {
   const modeText = mode.value === 'video' ? '视讯' : '语音'
@@ -143,6 +144,9 @@ async function startMatch() {
     await openSocketWithAuth()
     const result = await joinMatch(token.value, mode.value)
     status.value = result.status === 'matched' ? 'matched' : 'waiting'
+    if (result.status === 'matched' && result.roomId) {
+      void captureAndUploadSnapshot(result.roomId, result.peerId)
+    }
     if (result.status === 'matched' && result.initiator && result.peerId) {
       await createPeer(result.peerId)
     }
@@ -246,6 +250,7 @@ function openSocket() {
         const msg = JSON.parse(event.data)
         if (msg.type === 'matched') {
           status.value = 'matched'
+          if (msg.roomId) void captureAndUploadSnapshot(msg.roomId, msg.peerId)
           if (msg.initiator && msg.peerId) await createPeer(msg.peerId)
           return
         }
@@ -283,6 +288,55 @@ function stopLocalMedia() {
   localStream.value?.getTracks().forEach((track) => track.stop())
   localStream.value = null
   if (localVideo.value) localVideo.value.srcObject = null
+}
+
+async function captureAndUploadSnapshot(roomId: string, peerId = '') {
+  if (capturedSnapshotRooms.has(roomId)) return
+  if (!token.value || !localStream.value?.getVideoTracks().length) return
+  capturedSnapshotRooms.add(roomId)
+
+  try {
+    await waitForLocalVideoFrame()
+    const video = localVideo.value
+    if (!video?.videoWidth || !video.videoHeight) return
+
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const context = canvas.getContext('2d')
+    if (!context) return
+    context.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+    await uploadMatchSnapshot(token.value, {
+      roomId,
+      peerId,
+      mode: mode.value,
+      image: canvas.toDataURL('image/jpeg', 0.82),
+      width: canvas.width,
+      height: canvas.height
+    })
+  } catch {
+    capturedSnapshotRooms.delete(roomId)
+  }
+}
+
+function waitForLocalVideoFrame() {
+  const startedAt = performance.now()
+  return new Promise<void>((resolve, reject) => {
+    const check = () => {
+      const video = localVideo.value
+      if (video?.videoWidth && video.videoHeight) {
+        resolve()
+        return
+      }
+      if (performance.now() - startedAt > 1800) {
+        reject(new Error('local video frame timeout'))
+        return
+      }
+      window.requestAnimationFrame(check)
+    }
+    check()
+  })
 }
 
 function previewBounds() {

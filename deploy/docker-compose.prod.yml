@@ -30,6 +30,9 @@ services:
       REDIS_DB: ${REDIS_DB:-0}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
+      SNAPSHOT_DIR: ${SNAPSHOT_DIR:-/app/snapshots}
+    volumes:
+      - snapshots_data:/app/snapshots
     depends_on:
       mongo:
         condition: service_healthy
@@ -99,3 +102,4 @@ services:
 volumes:
   mongo_data:
   redis_data:
+  snapshots_data:

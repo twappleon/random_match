@@ -44,3 +44,17 @@ type statsResponse struct {
 	Waiting  int `json:"waiting" example:"3"`
 	Chatting int `json:"chatting" example:"8"`
 }
+
+type snapshotRequest struct {
+	RoomID string `json:"roomId" example:"f9b9fdc7110a4a5cb6924f2d936cd58a"`
+	PeerID string `json:"peerId" example:"5f6d8c2a7b1e4a9f8c0d2e3f5a6b7c8d"`
+	Mode   string `json:"mode" example:"video"`
+	Image  string `json:"image" example:"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ..."`
+	Width  int    `json:"width" example:"640"`
+	Height int    `json:"height" example:"480"`
+}
+
+type snapshotResponse struct {
+	Status string `json:"status" example:"saved"`
+	Path   string `json:"path" example:"/app/snapshots/2026-05-22/room-user.jpg"`
+}

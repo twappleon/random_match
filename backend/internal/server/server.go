@@ -57,6 +57,7 @@ func (s *Server) Routes() http.Handler {
 	auth.GET("/auth/session", s.authSession)
 	auth.POST("/match/join", s.joinMatch)
 	auth.POST("/match/leave", s.leaveMatch)
+	auth.POST("/match/snapshot", s.saveMatchSnapshot)
 
 	return router
 }
@@ -262,6 +263,45 @@ func (s *Server) leaveMatch(c *gin.Context) {
 	}
 	log.Printf("match leave user_id=%s", userID)
 	c.JSON(http.StatusOK, gin.H{"status": "left"})
+}
+
+// saveMatchSnapshot godoc
+//
+//	@Summary		Save match snapshot
+//	@Description	Saves a camera snapshot on the server after a match is created.
+//	@Tags			match
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			request	body		snapshotRequest	true	"Snapshot payload"
+//	@Success		200		{object}	snapshotResponse
+//	@Failure		400		{object}	errorResponse
+//	@Failure		401		{object}	errorResponse
+//	@Failure		500		{object}	errorResponse
+//	@Router			/api/v1/match/snapshot [post]
+func (s *Server) saveMatchSnapshot(c *gin.Context) {
+	userID := userIDFromContext(c)
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 3*1024*1024)
+
+	var req snapshotRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("snapshot invalid_json user_id=%s err=%v", userID, err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid snapshot"})
+		return
+	}
+	if strings.TrimSpace(req.RoomID) == "" || strings.TrimSpace(req.Image) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "roomId and image are required"})
+		return
+	}
+
+	path, err := saveSnapshot(s.cfg.SnapshotDir, userID, req)
+	if err != nil {
+		log.Printf("snapshot save failed user_id=%s room_id=%s err=%v", userID, req.RoomID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "save snapshot failed"})
+		return
+	}
+	log.Printf("snapshot saved user_id=%s peer_id=%s room_id=%s path=%s", userID, req.PeerID, req.RoomID, path)
+	c.JSON(http.StatusOK, gin.H{"status": "saved", "path": path})
 }
 
 // ws godoc

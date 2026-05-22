@@ -60,6 +60,36 @@ definitions:
         example: matched
         type: string
     type: object
+  internal_server.snapshotRequest:
+    properties:
+      height:
+        example: 480
+        type: integer
+      image:
+        example: data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...
+        type: string
+      mode:
+        example: video
+        type: string
+      peerId:
+        example: 5f6d8c2a7b1e4a9f8c0d2e3f5a6b7c8d
+        type: string
+      roomId:
+        example: f9b9fdc7110a4a5cb6924f2d936cd58a
+        type: string
+      width:
+        example: 640
+        type: integer
+    type: object
+  internal_server.snapshotResponse:
+    properties:
+      path:
+        example: /app/snapshots/2026-05-22/room-user.jpg
+        type: string
+      status:
+        example: saved
+        type: string
+    type: object
   internal_server.statsResponse:
     properties:
       chatting:
@@ -206,6 +236,42 @@ paths:
       security:
       - BearerAuth: []
       summary: Leave matchmaking queue
+      tags:
+      - match
+  /api/v1/match/snapshot:
+    post:
+      consumes:
+      - application/json
+      description: Saves a camera snapshot on the server after a match is created.
+      parameters:
+      - description: Snapshot payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server.snapshotRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_server.snapshotResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server.errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_server.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Save match snapshot
       tags:
       - match
   /api/v1/stats:
