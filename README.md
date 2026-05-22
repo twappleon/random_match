@@ -33,7 +33,7 @@ cp .env.example .env
 3. 启动 MongoDB 和 Redis：
 
 ```bash
-docker compose -f deploy/docker-compose.yml up -d
+docker-compose -f deploy/docker-compose.yml up -d
 ```
 
 4. 启动 Go 后端：
@@ -67,7 +67,24 @@ flutter run
 - `POST /api/v1/auth/anonymous`: 匿名登录
 - `POST /api/v1/match/join`: 加入随机匹配队列
 - `POST /api/v1/match/leave`: 离开匹配队列
+- `POST /api/v1/match/snapshot`: 保存配对成功后的截图
 - `GET /api/v1/ws?token=...`: WebRTC signaling WebSocket
+
+## 线上截图文件
+
+配对成功后，H5 会上传本地摄像头截图到后端容器的 `/app/snapshots`，生产环境通过 Docker volume 持久化。
+
+查看截图文件：
+
+```bash
+docker exec random-match-api find /app/snapshots -type f | sort
+```
+
+复制到服务器当前目录查看：
+
+```bash
+docker cp random-match-api:/app/snapshots ./snapshots
+```
 
 ## 下一步
 
