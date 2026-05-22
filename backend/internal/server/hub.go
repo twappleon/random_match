@@ -92,6 +92,12 @@ func (h *Hub) IsOnline(userID string) bool {
 	return h.clients[userID] != nil
 }
 
+func (h *Hub) Stats() (online int, chatting int) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return len(h.clients), len(h.peers)
+}
+
 func (h *Hub) Pair(userID, peerID string) {
 	h.mu.Lock()
 	h.peers[userID] = peerID

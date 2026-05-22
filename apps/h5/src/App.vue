@@ -14,6 +14,12 @@
       >
         <video ref="localVideo" class="local-video" autoplay playsinline muted></video>
       </div>
+
+      <aside class="stats-panel" aria-label="runtime stats">
+        <span>在线 {{ stats.online }}</span>
+        <span>等待 {{ stats.waiting }}</span>
+        <span>聊天 {{ stats.chatting }}</span>
+      </aside>
     </section>
 
     <nav class="toolbar" aria-label="match controls">
@@ -37,7 +43,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { anonymousAuth, iceServers, joinMatch, leaveMatch, verifySession, type MatchMode, wsURL } from './api'
+import { anonymousAuth, fetchStats, iceServers, joinMatch, leaveMatch, verifySession, type MatchMode, wsURL } from './api'
 import { initAnalytics } from './firebase'
 
 type Status = 'idle' | 'waiting' | 'matched'
@@ -47,6 +53,8 @@ const status = ref<Status>('idle')
 const loading = ref(false)
 const leaving = ref(false)
 const errorText = ref('')
+const stats = ref({ online: 0, waiting: 0, chatting: 0 })
+const statsTimer = ref<number | null>(null)
 const token = ref(localStorage.getItem('token') ?? '')
 const ws = ref<WebSocket | null>(null)
 const closingSocket = ref(false)
@@ -92,6 +100,26 @@ const localPreviewStyle = computed(() => {
 
 initAnalytics()
 
+async function refreshStats() {
+  try {
+    stats.value = await fetchStats()
+  } catch {
+    // Keep the last visible values if a short network hiccup happens.
+  }
+}
+
+function startStatsPolling() {
+  void refreshStats()
+  statsTimer.value = window.setInterval(refreshStats, 5000)
+}
+
+function stopStatsPolling() {
+  if (statsTimer.value !== null) {
+    window.clearInterval(statsTimer.value)
+    statsTimer.value = null
+  }
+}
+
 function clearToken() {
   token.value = ''
   localStorage.removeItem('token')
@@ -118,6 +146,7 @@ async function startMatch() {
     if (result.status === 'matched' && result.initiator && result.peerId) {
       await createPeer(result.peerId)
     }
+    void refreshStats()
   } catch (error) {
     errorText.value = toUserMessage(error)
   } finally {
@@ -138,6 +167,7 @@ async function leaveCall() {
     stopLocalMedia()
     resetCall()
     leaving.value = false
+    void refreshStats()
   }
 }
 
@@ -433,6 +463,7 @@ function toUserMessage(error: unknown) {
 }
 
 onBeforeUnmount(() => {
+  stopStatsPolling()
   window.removeEventListener('resize', ensurePreviewPosition)
   window.removeEventListener('pointermove', dragPreview)
   window.removeEventListener('pointerup', stopPreviewDrag)
@@ -444,5 +475,6 @@ onBeforeUnmount(() => {
 
 onMounted(() => {
   window.addEventListener('resize', ensurePreviewPosition)
+  startStatsPolling()
 })
 </script>

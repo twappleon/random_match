@@ -60,6 +60,18 @@ definitions:
         example: matched
         type: string
     type: object
+  internal_server.statsResponse:
+    properties:
+      chatting:
+        example: 8
+        type: integer
+      online:
+        example: 12
+        type: integer
+      waiting:
+        example: 3
+        type: integer
+    type: object
   internal_server.waitingMatchResponse:
     properties:
       status:
@@ -196,6 +208,24 @@ paths:
       summary: Leave matchmaking queue
       tags:
       - match
+  /api/v1/stats:
+    get:
+      description: Returns current online users, waiting users, and users in active
+        chats.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_server.statsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server.errorResponse'
+      summary: Runtime usage stats
+      tags:
+      - system
   /api/v1/ws:
     get:
       description: Upgrades to a WebSocket used for match and WebRTC signaling messages.

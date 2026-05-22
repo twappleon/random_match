@@ -38,3 +38,9 @@ type matchedResponse struct {
 type leaveMatchResponse struct {
 	Status string `json:"status" example:"left"`
 }
+
+type statsResponse struct {
+	Online   int `json:"online" example:"12"`
+	Waiting  int `json:"waiting" example:"3"`
+	Chatting int `json:"chatting" example:"8"`
+}

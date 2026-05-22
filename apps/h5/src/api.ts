@@ -36,6 +36,18 @@ export interface MatchResponse {
   initiator?: boolean
 }
 
+export interface StatsResponse {
+  online: number
+  waiting: number
+  chatting: number
+}
+
+export async function fetchStats(): Promise<StatsResponse> {
+  const res = await fetch(`${apiBase()}/api/v1/stats`)
+  if (!res.ok) throw new Error('统计数据读取失败')
+  return res.json()
+}
+
 export async function joinMatch(token: string, mode: MatchMode, region = 'global'): Promise<MatchResponse> {
   const res = await fetch(`${apiBase()}/api/v1/match/join`, {
     method: 'POST',

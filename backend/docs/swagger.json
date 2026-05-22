@@ -165,6 +165,32 @@
                 }
             }
         },
+        "/api/v1/stats": {
+            "get": {
+                "description": "Returns current online users, waiting users, and users in active chats.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Runtime usage stats",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server.statsResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ws": {
             "get": {
                 "description": "Upgrades to a WebSocket used for match and WebRTC signaling messages. Pass the JWT as the token query parameter.",
@@ -306,6 +332,23 @@
                 "status": {
                     "type": "string",
                     "example": "matched"
+                }
+            }
+        },
+        "internal_server.statsResponse": {
+            "type": "object",
+            "properties": {
+                "chatting": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "online": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "waiting": {
+                    "type": "integer",
+                    "example": 3
                 }
             }
         },

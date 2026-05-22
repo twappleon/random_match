@@ -49,6 +49,7 @@ func (s *Server) Routes() http.Handler {
 
 	v1 := router.Group("/api/v1")
 	v1.POST("/auth/anonymous", s.anonymousAuth)
+	v1.GET("/stats", s.stats)
 	v1.GET("/ws", s.ws)
 
 	auth := v1.Group("")
@@ -124,6 +125,34 @@ func (s *Server) anonymousAuth(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"token": token,
 		"user":  user,
+	})
+}
+
+// stats godoc
+//
+//	@Summary		Runtime usage stats
+//	@Description	Returns current online users, waiting users, and users in active chats.
+//	@Tags			system
+//	@Produce		json
+//	@Success		200	{object}	statsResponse
+//	@Failure		500	{object}	errorResponse
+//	@Router			/api/v1/stats [get]
+func (s *Server) stats(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+	defer cancel()
+
+	waiting, err := countWaitingUsers(ctx, s.cache.Client)
+	if err != nil {
+		log.Printf("stats waiting count failed err=%v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "stats failed"})
+		return
+	}
+
+	online, chatting := s.hub.Stats()
+	c.JSON(http.StatusOK, gin.H{
+		"online":   online,
+		"waiting":  waiting,
+		"chatting": chatting,
 	})
 }
 
@@ -265,6 +294,11 @@ func (s *Server) ws(c *gin.Context) {
 	log.Printf("ws connected user_id=%s origin=%s", userID, c.Request.Header.Get("Origin"))
 	client := s.hub.Register(userID, conn)
 	defer func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		if err := removeUserFromMatchQueues(cleanupCtx, s.cache.Client, userID); err != nil {
+			log.Printf("ws queue cleanup failed user_id=%s err=%v", userID, err)
+		}
 		s.hub.Unregister(userID, client)
 		log.Printf("ws disconnected user_id=%s", userID)
 	}()

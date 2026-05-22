@@ -95,3 +95,28 @@ func removeUserFromMatchQueues(ctx context.Context, client *redis.Client, userID
 		cursor = nextCursor
 	}
 }
+
+func countWaitingUsers(ctx context.Context, client *redis.Client) (int, error) {
+	var cursor uint64
+	total := 0
+	for {
+		keys, nextCursor, err := client.Scan(ctx, cursor, "match:queue:v2:*", 100).Result()
+		if err != nil {
+			return 0, err
+		}
+		for _, key := range keys {
+			if strings.HasSuffix(key, ":members") {
+				continue
+			}
+			count, err := client.LLen(ctx, key).Result()
+			if err != nil {
+				return 0, err
+			}
+			total += int(count)
+		}
+		if nextCursor == 0 {
+			return total, nil
+		}
+		cursor = nextCursor
+	}
+}
