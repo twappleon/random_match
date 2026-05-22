@@ -195,8 +195,19 @@ async function openMedia() {
   }
   stopLocalMedia()
   localStream.value = await navigator.mediaDevices.getUserMedia({
-    video: mode.value === 'video',
-    audio: true
+    video: mode.value === 'video'
+      ? {
+          width: { ideal: 480, max: 640 },
+          height: { ideal: 640, max: 720 },
+          frameRate: { ideal: 15, max: 20 },
+          facingMode: 'user'
+        }
+      : false,
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
+    }
   })
   if (localVideo.value) localVideo.value.srcObject = localStream.value
   await nextTick()
@@ -441,7 +452,7 @@ async function createPeer(peerId: string) {
 
   const pc = buildPeer(peerId)
   peer.value = pc
-  localStream.value?.getTracks().forEach((track) => pc.addTrack(track, localStream.value!))
+  await addLocalTracks(pc)
 
   const offer = await pc.createOffer()
   await pc.setLocalDescription(offer)
@@ -456,7 +467,7 @@ async function acceptOffer(peerId: string, offer: RTCSessionDescriptionInit) {
 
   const pc = buildPeer(peerId)
   peer.value = pc
-  localStream.value?.getTracks().forEach((track) => pc.addTrack(track, localStream.value!))
+  await addLocalTracks(pc)
 
   await pc.setRemoteDescription(offer)
   await flushCandidates()
@@ -492,6 +503,27 @@ function buildPeer(peerId: string) {
     }
   }
   return pc
+}
+
+async function addLocalTracks(pc: RTCPeerConnection) {
+  const stream = localStream.value
+  if (!stream) return
+  for (const track of stream.getTracks()) {
+    const sender = pc.addTrack(track, stream)
+    if (track.kind !== 'video') continue
+    const params = sender.getParameters()
+    params.encodings = params.encodings?.length ? params.encodings : [{}]
+    params.encodings[0] = {
+      ...params.encodings[0],
+      maxBitrate: 420_000,
+      maxFramerate: 20
+    }
+    try {
+      await sender.setParameters(params)
+    } catch {
+      // Some browsers reject sender parameter changes before negotiation.
+    }
+  }
 }
 
 function send(message: unknown) {

@@ -92,11 +92,15 @@ services:
       - --realm=${TURN_REALM:-random-match}
       - --user=${TURN_USERNAME:-random}:${TURN_PASSWORD:?TURN_PASSWORD is required}
       - --external-ip=${TURN_EXTERNAL_IP:?TURN_EXTERNAL_IP is required}
+      - --min-port=${TURN_MIN_PORT:-49160}
+      - --max-port=${TURN_MAX_PORT:-49200}
       - --no-tls
       - --no-dtls
     ports:
       - "${TURN_PORT:-3478}:3478/tcp"
       - "${TURN_PORT:-3478}:3478/udp"
+      - "${TURN_MIN_PORT:-49160}-${TURN_MAX_PORT:-49200}:${TURN_MIN_PORT:-49160}-${TURN_MAX_PORT:-49200}/udp"
+      - "${TURN_MIN_PORT:-49160}-${TURN_MAX_PORT:-49200}:${TURN_MIN_PORT:-49160}-${TURN_MAX_PORT:-49200}/tcp"
     restart: unless-stopped
 
 volumes:
