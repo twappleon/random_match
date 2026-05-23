@@ -81,17 +81,17 @@ H5 会在浏览器允许通知后注册 Web Push 订阅。之后只要有人建�
 - 用户必须曾经打开过 H5 并允许通知，后端才有订阅可推送。
 - 后端对每个离线接收者有 10 分钟冷却，避免频繁刷新造成通知轰炸。
 
-生成 VAPID 密钥：
+在服务器产生 VAPID 密钥：
 
 ```bash
 docker run --rm node:22-alpine sh -c "npm -g install web-push >/dev/null && web-push generate-vapid-keys"
 ```
 
-把生成结果写入服务器 `.env`：
+执行后会输出 `Public Key` 和 `Private Key`，把结果写入服务器 `.env`：
 
 ```env
-VAPID_PUBLIC_KEY=你的PublicKey
-VAPID_PRIVATE_KEY=你的PrivateKey
+VAPID_PUBLIC_KEY=上面输出的PublicKey
+VAPID_PRIVATE_KEY=上面输出的PrivateKey
 VAPID_SUBJECT=mailto:admin@danawang8899.com
 ```
 
