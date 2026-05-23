@@ -86,6 +86,61 @@ docker exec random-match-api find /app/snapshots -type f | sort
 docker cp random-match-api:/app/snapshots ./snapshots
 ```
 
+## WebRTC 延迟排查
+
+如果两端已经配对成功，但视频严重 lag，优先检查 TURN 和视频码率。
+
+常见原因：
+
+- TURN 只开放了 `3478`，没有开放 coturn relay 媒体端口。
+- `VITE_FORCE_TURN=true` 会强制所有媒体走 TURN，延迟通常高于 P2P。
+- 摄像头采集分辨率或帧率过高，会增加上传带宽和 CPU 压力。
+
+更新并重建 H5 和 TURN：
+
+```bash
+cd ~/random_match
+git pull
+docker-compose -f deploy/docker-compose.prod.yml --env-file .env up -d --build --force-recreate h5 turn
+```
+
+服务器防火墙放行 TURN 端口：
+
+```bash
+ufw allow 3478/tcp
+ufw allow 3478/udp
+ufw allow 49160:49200/tcp
+ufw allow 49160:49200/udp
+ufw reload
+```
+
+Vultr Firewall 也要放行：
+
+```text
+TCP 3478
+UDP 3478
+TCP 49160-49200
+UDP 49160-49200
+```
+
+确认 TURN 稳定后，建议把 `.env` 里的：
+
+```env
+VITE_FORCE_TURN=true
+```
+
+改成：
+
+```env
+VITE_FORCE_TURN=false
+```
+
+这样能直连 P2P 时会优先 P2P，不能直连才走 TURN，通常延迟更低。改完后重建 H5：
+
+```bash
+docker-compose -f deploy/docker-compose.prod.yml --env-file .env up -d --build --force-recreate h5
+```
+
 ## 下一步
 
 - 接入真实 Firebase 项目配置。
