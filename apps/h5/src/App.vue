@@ -35,9 +35,6 @@
       <button class="danger" :disabled="leaving || status === 'idle'" @click="leaveCall">
         {{ leaving ? '退出中' : '退出' }}
       </button>
-      <button class="notify" :class="{ active: pushStatus === 'enabled' }" :disabled="pushLoading || pushStatus === 'unsupported' || pushStatus === 'unconfigured'" @click="enablePushNotifications">
-        {{ pushButtonText }}
-      </button>
     </nav>
 
     <p v-if="errorText" class="error" role="alert">{{ errorText }}</p>
@@ -55,7 +52,6 @@ const mode = ref<MatchMode>('video')
 const status = ref<Status>('idle')
 const loading = ref(false)
 const leaving = ref(false)
-const pushLoading = ref(false)
 const pushStatus = ref<'idle' | 'enabled' | 'blocked' | 'unsupported' | 'unconfigured'>('idle')
 const errorText = ref('')
 const stats = ref({ online: 0, waiting: 0, chatting: 0 })
@@ -96,15 +92,6 @@ const actionText = computed(() => {
   if (status.value === 'waiting') return '等待中'
   if (status.value === 'matched') return '已连线'
   return '随机匹配'
-})
-
-const pushButtonText = computed(() => {
-  if (pushLoading.value) return '通知中'
-  if (pushStatus.value === 'enabled') return '通知已开'
-  if (pushStatus.value === 'blocked') return '通知被挡'
-  if (pushStatus.value === 'unsupported') return '不支持通知'
-  if (pushStatus.value === 'unconfigured') return '通知未配置'
-  return '开启通知'
 })
 
 const localPreviewStyle = computed(() => {
@@ -168,21 +155,10 @@ async function ensureAuth() {
   localStorage.setItem('token', auth.token)
 }
 
-async function enablePushNotifications() {
-  pushLoading.value = true
-  errorText.value = ''
-  try {
-    await setupPushNotifications(true)
-  } finally {
-    pushLoading.value = false
-  }
-}
-
 async function setupPushNotifications(promptUser = false) {
   const publicKey = vapidPublicKey()
   if (!publicKey) {
     pushStatus.value = 'unconfigured'
-    if (promptUser) errorText.value = '通知尚未配置 VAPID_PUBLIC_KEY'
     return
   }
   if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
@@ -192,7 +168,6 @@ async function setupPushNotifications(promptUser = false) {
   }
 
   try {
-    await ensureAuth()
     let permission = Notification.permission
     if (permission === 'default' && promptUser) {
       permission = await Notification.requestPermission()
@@ -204,6 +179,7 @@ async function setupPushNotifications(promptUser = false) {
       return
     }
 
+    await ensureAuth()
     const registration = await navigator.serviceWorker.register('/sw.js')
     const existing = await registration.pushManager.getSubscription()
     const subscription = existing ?? await registration.pushManager.subscribe({
@@ -224,7 +200,7 @@ async function setupPushNotifications(promptUser = false) {
       await sendPushTest(token.value)
     }
   } catch {
-    if (promptUser) errorText.value = '通知开启失败，请确认使用 HTTPS 并重新整理页面后再试'
+    if (promptUser && !errorText.value) errorText.value = '通知开启失败，请确认使用 HTTPS 并重新整理页面后再试'
   }
 }
 
@@ -249,6 +225,7 @@ async function startMatch() {
   errorText.value = ''
   try {
     resetCall()
+    await setupPushNotifications(pushStatus.value === 'idle')
     await ensureAuth()
     await openMedia()
     await openSocketWithAuth()
