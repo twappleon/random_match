@@ -57,9 +57,11 @@ const stats = ref({ online: 0, waiting: 0, chatting: 0 })
 const statsTimer = ref<number | null>(null)
 const token = ref(localStorage.getItem('token') ?? '')
 const ws = ref<WebSocket | null>(null)
+const wsHeartbeatTimer = ref<number | null>(null)
 const closingSocket = ref(false)
 const localStream = ref<MediaStream | null>(null)
 const peer = ref<RTCPeerConnection | null>(null)
+const peerDisconnectTimer = ref<number | null>(null)
 const activePeerId = ref<string | null>(null)
 const pendingCandidates = ref<RTCIceCandidateInit[]>([])
 const stage = ref<HTMLElement | null>(null)
@@ -118,6 +120,24 @@ function stopStatsPolling() {
   if (statsTimer.value !== null) {
     window.clearInterval(statsTimer.value)
     statsTimer.value = null
+  }
+}
+
+function startSocketHeartbeat(socket: WebSocket) {
+  stopSocketHeartbeat()
+  wsHeartbeatTimer.value = window.setInterval(() => {
+    if (ws.value !== socket || socket.readyState !== WebSocket.OPEN) {
+      stopSocketHeartbeat()
+      return
+    }
+    socket.send(JSON.stringify({ type: 'ping' }))
+  }, 25000)
+}
+
+function stopSocketHeartbeat() {
+  if (wsHeartbeatTimer.value !== null) {
+    window.clearInterval(wsHeartbeatTimer.value)
+    wsHeartbeatTimer.value = null
   }
 }
 
@@ -239,6 +259,7 @@ function openSocket() {
 
     socket.onopen = () => {
       window.clearTimeout(failTimer)
+      startSocketHeartbeat(socket)
       resolve()
     }
 
@@ -248,6 +269,7 @@ function openSocket() {
     }
 
     socket.onclose = () => {
+      stopSocketHeartbeat()
       if (ws.value === socket) ws.value = null
       if (closingSocket.value) {
         closingSocket.value = false
@@ -259,6 +281,7 @@ function openSocket() {
     socket.onmessage = async (event) => {
       try {
         const msg = JSON.parse(event.data)
+        if (msg.type === 'pong') return
         if (msg.type === 'matched') {
           status.value = 'matched'
           if (msg.roomId) void captureAndUploadSnapshot(msg.roomId, msg.peerId)
@@ -291,6 +314,7 @@ function openSocket() {
 function closeSocket() {
   const socket = ws.value
   ws.value = null
+  stopSocketHeartbeat()
   closingSocket.value = Boolean(socket)
   socket?.close()
 }
@@ -415,11 +439,27 @@ function stopPreviewDrag(event: PointerEvent) {
 }
 
 function teardownPeer() {
+  clearPeerDisconnectTimer()
   peer.value?.close()
   peer.value = null
   activePeerId.value = null
   pendingCandidates.value = []
   if (remoteVideo.value) remoteVideo.value.srcObject = null
+}
+
+function clearPeerDisconnectTimer() {
+  if (peerDisconnectTimer.value !== null) {
+    window.clearTimeout(peerDisconnectTimer.value)
+    peerDisconnectTimer.value = null
+  }
+}
+
+function schedulePeerDisconnect(message: string) {
+  if (peerDisconnectTimer.value !== null) return
+  peerDisconnectTimer.value = window.setTimeout(() => {
+    peerDisconnectTimer.value = null
+    resetCall(message)
+  }, 5000)
 }
 
 function resetCall(message = '') {
@@ -485,12 +525,28 @@ function buildPeer(peerId: string) {
     if (event.candidate) send({ type: 'candidate', peerId, data: event.candidate })
   }
   pc.onconnectionstatechange = () => {
-    if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+    if (pc.connectionState === 'connected') {
+      clearPeerDisconnectTimer()
+      return
+    }
+    if (pc.connectionState === 'disconnected') {
+      schedulePeerDisconnect('对方连接不稳定，请重新匹配')
+      return
+    }
+    if (['failed', 'closed'].includes(pc.connectionState)) {
       resetCall('对方已断线，请重新匹配')
     }
   }
   pc.oniceconnectionstatechange = () => {
-    if (['disconnected', 'failed', 'closed'].includes(pc.iceConnectionState)) {
+    if (['connected', 'completed'].includes(pc.iceConnectionState)) {
+      clearPeerDisconnectTimer()
+      return
+    }
+    if (pc.iceConnectionState === 'disconnected') {
+      schedulePeerDisconnect('对方连接不稳定，请重新匹配')
+      return
+    }
+    if (['failed', 'closed'].includes(pc.iceConnectionState)) {
       resetCall('对方连接已中断，请重新匹配')
     }
   }
@@ -550,6 +606,7 @@ function toUserMessage(error: unknown) {
 
 onBeforeUnmount(() => {
   stopStatsPolling()
+  stopSocketHeartbeat()
   window.removeEventListener('resize', ensurePreviewPosition)
   window.removeEventListener('pointermove', dragPreview)
   window.removeEventListener('pointerup', stopPreviewDrag)

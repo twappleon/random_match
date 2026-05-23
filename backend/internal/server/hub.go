@@ -129,6 +129,14 @@ func (c *Client) ReadLoop(ctx context.Context, hub *Hub) {
 			log.Printf("signal invalid_json user_id=%s err=%v", c.userID, err)
 			continue
 		}
+		if msg.Type == "ping" {
+			select {
+			case c.send <- SignalMessage{Type: "pong"}:
+			default:
+				log.Printf("signal drop user_id=%s type=pong reason=send_queue_full", c.userID)
+			}
+			continue
+		}
 		if msg.PeerID != "" {
 			targetUserID := msg.PeerID
 			msg.PeerID = c.userID
