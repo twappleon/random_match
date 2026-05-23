@@ -110,6 +110,14 @@ export async function savePushSubscription(token: string, payload: PushSubscript
   if (!res.ok) throw new Error('通知订阅保存失败')
 }
 
+export async function sendPushTest(token: string): Promise<void> {
+  const res = await fetch(`${apiBase()}/api/v1/push/test`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error('服务器测试推送失败')
+}
+
 export function wsURL(token: string) {
   const url = new URL(apiBase())
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'

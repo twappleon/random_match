@@ -59,6 +59,7 @@ func (s *Server) Routes() http.Handler {
 	auth.POST("/match/leave", s.leaveMatch)
 	auth.POST("/match/snapshot", s.saveMatchSnapshot)
 	auth.POST("/push/subscription", s.savePushSubscriptionHandler)
+	auth.POST("/push/test", s.testPushHandler)
 
 	return router
 }
@@ -341,6 +342,38 @@ func (s *Server) savePushSubscriptionHandler(c *gin.Context) {
 	}
 	log.Printf("push subscription saved user_id=%s", userID)
 	c.JSON(http.StatusOK, gin.H{"status": "saved"})
+}
+
+// testPushHandler godoc
+//
+//	@Summary		Send a test push notification
+//	@Description	Sends a server-side Web Push notification to the current user's latest subscription.
+//	@Tags			push
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	pushTestResponse
+//	@Failure		401	{object}	errorResponse
+//	@Failure		404	{object}	errorResponse
+//	@Failure		500	{object}	errorResponse
+//	@Router			/api/v1/push/test [post]
+func (s *Server) testPushHandler(c *gin.Context) {
+	userID := userIDFromContext(c)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	if err := s.sendTestPush(ctx, userID); err != nil {
+		log.Printf("push test failed user_id=%s err=%v", userID, err)
+		status := http.StatusInternalServerError
+		if errors.Is(err, errPushNotConfigured) {
+			status = http.StatusServiceUnavailable
+		}
+		if errors.Is(err, errPushSubscriptionNotFound) {
+			status = http.StatusNotFound
+		}
+		c.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "sent"})
 }
 
 // ws godoc

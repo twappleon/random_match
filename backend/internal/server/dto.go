@@ -72,3 +72,7 @@ type pushSubscriptionKeys struct {
 type pushSubscriptionResponse struct {
 	Status string `json:"status" example:"saved"`
 }
+
+type pushTestResponse struct {
+	Status string `json:"status" example:"sent"`
+}

@@ -46,7 +46,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { anonymousAuth, fetchStats, iceServers, joinMatch, leaveMatch, savePushSubscription, uploadMatchSnapshot, vapidPublicKey, verifySession, type MatchMode, wsURL } from './api'
+import { anonymousAuth, fetchStats, iceServers, joinMatch, leaveMatch, savePushSubscription, sendPushTest, uploadMatchSnapshot, vapidPublicKey, verifySession, type MatchMode, wsURL } from './api'
 import { initAnalytics } from './firebase'
 
 type Status = 'idle' | 'waiting' | 'matched'
@@ -187,7 +187,7 @@ async function setupPushNotifications(promptUser = false) {
   }
   if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
     pushStatus.value = 'unsupported'
-    if (promptUser) errorText.value = '当前浏览器不支持网页推播通知'
+    if (promptUser) errorText.value = iosPushHelpText()
     return
   }
 
@@ -221,16 +221,16 @@ async function setupPushNotifications(promptUser = false) {
     })
     pushStatus.value = 'enabled'
     if (promptUser) {
-      await registration.showNotification('通知已开启', {
-        body: '之后有人上线时，会推送通知给未在线用户。',
-        icon: '/favicon.ico',
-        badge: '/favicon.ico',
-        data: { url: '/' }
-      })
+      await sendPushTest(token.value)
     }
   } catch {
     if (promptUser) errorText.value = '通知开启失败，请确认使用 HTTPS 并重新整理页面后再试'
   }
+}
+
+function iosPushHelpText() {
+  if (!/iPad|iPhone|iPod/.test(navigator.userAgent)) return '当前浏览器不支持网页推播通知'
+  return 'iPhone 需先用 Safari 分享按钮加入主画面，再从主画面打开后才能开启通知'
 }
 
 function urlBase64ToUint8Array(value: string) {

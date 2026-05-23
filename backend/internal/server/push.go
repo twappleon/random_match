@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -15,6 +17,11 @@ import (
 )
 
 const pushCooldown = 10 * time.Minute
+
+var (
+	errPushNotConfigured        = errors.New("push is not configured")
+	errPushSubscriptionNotFound = errors.New("push subscription not found")
+)
 
 type pushSubscriptionDocument struct {
 	UserID    string               `bson:"userId"`
@@ -56,7 +63,7 @@ func (s *Server) notifyOfflineUsers(ctx context.Context, actorUserID string) {
 		if s.hub.IsOnline(sub.UserID) || !s.acquirePushCooldown(ctx, sub.UserID) {
 			continue
 		}
-		s.sendPush(ctx, sub, payload)
+		_, _ = s.sendPush(ctx, sub, payload)
 	}
 	if err := cursor.Err(); err != nil {
 		log.Printf("push cursor failed err=%v", err)
@@ -79,7 +86,7 @@ func (s *Server) acquirePushCooldown(ctx context.Context, userID string) bool {
 	return ok
 }
 
-func (s *Server) sendPush(ctx context.Context, doc pushSubscriptionDocument, payload []byte) {
+func (s *Server) sendPush(ctx context.Context, doc pushSubscriptionDocument, payload []byte) (int, error) {
 	resp, err := webpush.SendNotificationWithContext(ctx, payload, &webpush.Subscription{
 		Endpoint: doc.Endpoint,
 		Keys: webpush.Keys{
@@ -95,7 +102,7 @@ func (s *Server) sendPush(ctx context.Context, doc pushSubscriptionDocument, pay
 	})
 	if err != nil {
 		log.Printf("push send failed user_id=%s err=%v", doc.UserID, err)
-		return
+		return 0, err
 	}
 	defer resp.Body.Close()
 
@@ -104,13 +111,14 @@ func (s *Server) sendPush(ctx context.Context, doc pushSubscriptionDocument, pay
 		if err != nil {
 			log.Printf("push delete expired failed user_id=%s status=%d err=%v", doc.UserID, resp.StatusCode, err)
 		}
-		return
+		return resp.StatusCode, fmt.Errorf("push subscription expired status=%d", resp.StatusCode)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		log.Printf("push send non_2xx user_id=%s status=%d", doc.UserID, resp.StatusCode)
-		return
+		return resp.StatusCode, fmt.Errorf("push service returned status=%d", resp.StatusCode)
 	}
 	log.Printf("push sent user_id=%s status=%d", doc.UserID, resp.StatusCode)
+	return resp.StatusCode, nil
 }
 
 func (s *Server) savePushSubscription(ctx context.Context, userID string, req pushSubscriptionRequest) error {
@@ -129,5 +137,32 @@ func (s *Server) savePushSubscription(ctx context.Context, userID string, req pu
 		},
 		options.Update().SetUpsert(true),
 	)
+	return err
+}
+
+func (s *Server) sendTestPush(ctx context.Context, userID string) error {
+	if s.cfg.VAPIDPublicKey == "" || s.cfg.VAPIDPrivateKey == "" {
+		return errPushNotConfigured
+	}
+
+	var sub pushSubscriptionDocument
+	err := s.pushSubscriptions().FindOne(
+		ctx,
+		bson.M{"userId": userID},
+		options.FindOne().SetSort(bson.M{"updatedAt": -1}),
+	).Decode(&sub)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return errPushSubscriptionNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	payload, _ := json.Marshal(ginPushPayload{
+		Title: "服务器推送测试",
+		Body:  "这是一则从后端发出的真实 Web Push。",
+		URL:   "/",
+	})
+	_, err = s.sendPush(ctx, sub, payload)
 	return err
 }

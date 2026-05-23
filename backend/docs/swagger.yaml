@@ -106,6 +106,12 @@ definitions:
         example: saved
         type: string
     type: object
+  server.pushTestResponse:
+    properties:
+      status:
+        example: sent
+        type: string
+    type: object
   server.snapshotRequest:
     properties:
       height:
@@ -332,6 +338,34 @@ paths:
       security:
       - BearerAuth: []
       summary: Save browser push subscription
+      tags:
+      - push
+  /api/v1/push/test:
+    post:
+      description: Sends a server-side Web Push notification to the current user's
+        latest subscription.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.pushTestResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Send a test push notification
       tags:
       - push
   /api/v1/stats:
