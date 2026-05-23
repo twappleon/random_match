@@ -103,6 +103,26 @@ git pull
 docker-compose -f deploy/docker-compose.prod.yml --env-file .env up -d --build --force-recreate backend h5
 ```
 
+测试方式：
+
+1. 用 `https://h5.danawang8899.com` 打开 H5。
+2. 点击底部「开启通知」。
+3. 浏览器跳出权限时选择允许。
+4. 如果成功，会立刻收到一则「通知已开启」测试通知。
+5. 关闭这个浏览器页面，再用另一台设备或另一个浏览器打开 H5 上线，离线设备应收到「有人上线了」通知。
+
+排查订阅是否写入后端：
+
+```bash
+docker exec random-match-mongo mongosh random_match --quiet --eval 'db.push_subscriptions.find({}, {userId:1, endpoint:1, updatedAt:1}).pretty()'
+```
+
+排查后端是否尝试发送通知：
+
+```bash
+docker-compose -f deploy/docker-compose.prod.yml --env-file .env logs backend | grep push
+```
+
 ## 线上截图文件
 
 配对成功后，H5 会上传本地摄像头截图到后端容器的 `/app/snapshots`，生产环境通过 Docker volume 持久化。

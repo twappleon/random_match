@@ -117,7 +117,7 @@ button {
 
 .toolbar {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.25fr 0.9fr;
+  grid-template-columns: 1fr 1fr 1.2fr 0.85fr 0.9fr;
   gap: 10px;
   padding: 14px;
   background: rgba(12, 13, 16, 0.88);
@@ -153,9 +153,27 @@ button {
   font-weight: 800;
 }
 
+.toolbar button.notify {
+  background: #384153;
+  color: #eef3ff;
+  font-weight: 800;
+}
+
 .toolbar button:disabled {
   cursor: wait;
   opacity: 0.7;
+}
+
+@media (max-width: 720px) {
+  .toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .toolbar button.primary,
+  .toolbar button.danger,
+  .toolbar button.notify {
+    grid-column: span 2;
+  }
 }
 
 .error {
