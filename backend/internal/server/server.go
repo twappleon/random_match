@@ -58,6 +58,7 @@ func (s *Server) Routes() http.Handler {
 	auth.POST("/match/join", s.joinMatch)
 	auth.POST("/match/leave", s.leaveMatch)
 	auth.POST("/match/snapshot", s.saveMatchSnapshot)
+	auth.POST("/push/subscription", s.savePushSubscriptionHandler)
 
 	return router
 }
@@ -304,6 +305,44 @@ func (s *Server) saveMatchSnapshot(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "saved", "path": path})
 }
 
+// savePushSubscriptionHandler godoc
+//
+//	@Summary		Save browser push subscription
+//	@Description	Saves the current user's browser Web Push subscription so the server can notify them while offline.
+//	@Tags			push
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			request	body		pushSubscriptionRequest	true	"Push subscription"
+//	@Success		200		{object}	pushSubscriptionResponse
+//	@Failure		400		{object}	errorResponse
+//	@Failure		401		{object}	errorResponse
+//	@Failure		500		{object}	errorResponse
+//	@Router			/api/v1/push/subscription [post]
+func (s *Server) savePushSubscriptionHandler(c *gin.Context) {
+	userID := userIDFromContext(c)
+	var req pushSubscriptionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("push subscription invalid_json user_id=%s err=%v", userID, err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid subscription"})
+		return
+	}
+	if strings.TrimSpace(req.Endpoint) == "" || strings.TrimSpace(req.Keys.Auth) == "" || strings.TrimSpace(req.Keys.P256dh) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "subscription endpoint and keys are required"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+	if err := s.savePushSubscription(ctx, userID, req); err != nil {
+		log.Printf("push subscription save failed user_id=%s err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "save push subscription failed"})
+		return
+	}
+	log.Printf("push subscription saved user_id=%s", userID)
+	c.JSON(http.StatusOK, gin.H{"status": "saved"})
+}
+
 // ws godoc
 //
 //	@Summary		Connect signaling WebSocket
@@ -333,6 +372,11 @@ func (s *Server) ws(c *gin.Context) {
 
 	log.Printf("ws connected user_id=%s origin=%s", userID, c.Request.Header.Get("Origin"))
 	client := s.hub.Register(userID, conn)
+	go func() {
+		notifyCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		s.notifyOfflineUsers(notifyCtx, userID)
+	}()
 	defer func() {
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()

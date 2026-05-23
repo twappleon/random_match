@@ -29,13 +29,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.anonymousAuthResponse"
+                            "$ref": "#/definitions/server.anonymousAuthResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.errorResponse"
+                            "$ref": "#/definitions/server.errorResponse"
                         }
                     }
                 }
@@ -60,13 +60,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.authSessionResponse"
+                            "$ref": "#/definitions/server.authSessionResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.errorResponse"
+                            "$ref": "#/definitions/server.errorResponse"
                         }
                     }
                 }
@@ -97,7 +97,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_server.joinMatchRequest"
+                            "$ref": "#/definitions/server.joinMatchRequest"
                         }
                     }
                 ],
@@ -105,31 +105,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.matchedResponse"
+                            "$ref": "#/definitions/server.matchedResponse"
                         }
                     },
                     "202": {
                         "description": "Accepted",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.waitingMatchResponse"
+                            "$ref": "#/definitions/server.waitingMatchResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.errorResponse"
+                            "$ref": "#/definitions/server.errorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.errorResponse"
+                            "$ref": "#/definitions/server.errorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.errorResponse"
+                            "$ref": "#/definitions/server.errorResponse"
                         }
                     }
                 }
@@ -154,19 +154,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.leaveMatchResponse"
+                            "$ref": "#/definitions/server.leaveMatchResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.errorResponse"
+                            "$ref": "#/definitions/server.errorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.errorResponse"
+                            "$ref": "#/definitions/server.errorResponse"
                         }
                     }
                 }
@@ -197,7 +197,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_server.snapshotRequest"
+                            "$ref": "#/definitions/server.snapshotRequest"
                         }
                     }
                 ],
@@ -205,25 +205,82 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.snapshotResponse"
+                            "$ref": "#/definitions/server.snapshotResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.errorResponse"
+                            "$ref": "#/definitions/server.errorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.errorResponse"
+                            "$ref": "#/definitions/server.errorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.errorResponse"
+                            "$ref": "#/definitions/server.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/push/subscription": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Saves the current user's browser Web Push subscription so the server can notify them while offline.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "push"
+                ],
+                "summary": "Save browser push subscription",
+                "parameters": [
+                    {
+                        "description": "Push subscription",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/server.pushSubscriptionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.pushSubscriptionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/server.errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.errorResponse"
                         }
                     }
                 }
@@ -243,13 +300,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.statsResponse"
+                            "$ref": "#/definitions/server.statsResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.errorResponse"
+                            "$ref": "#/definitions/server.errorResponse"
                         }
                     }
                 }
@@ -281,7 +338,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.errorResponse"
+                            "$ref": "#/definitions/server.errorResponse"
                         }
                     }
                 }
@@ -301,7 +358,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_server.healthResponse"
+                            "$ref": "#/definitions/server.healthResponse"
                         }
                     }
                 }
@@ -309,7 +366,41 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "internal_server.anonymousAuthResponse": {
+        "model.MatchMode": {
+            "type": "string",
+            "enum": [
+                "video",
+                "voice"
+            ],
+            "x-enum-varnames": [
+                "MatchModeVideo",
+                "MatchModeVoice"
+            ]
+        },
+        "model.User": {
+            "type": "object",
+            "properties": {
+                "avatarUrl": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "displayName": {
+                    "type": "string"
+                },
+                "firebaseUid": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "server.anonymousAuthResponse": {
             "type": "object",
             "properties": {
                 "token": {
@@ -317,11 +408,11 @@ const docTemplate = `{
                     "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                 },
                 "user": {
-                    "$ref": "#/definitions/random-match_backend_internal_model.User"
+                    "$ref": "#/definitions/model.User"
                 }
             }
         },
-        "internal_server.authSessionResponse": {
+        "server.authSessionResponse": {
             "type": "object",
             "properties": {
                 "userId": {
@@ -330,7 +421,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_server.errorResponse": {
+        "server.errorResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -339,7 +430,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_server.healthResponse": {
+        "server.healthResponse": {
             "type": "object",
             "properties": {
                 "status": {
@@ -348,7 +439,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_server.joinMatchRequest": {
+        "server.joinMatchRequest": {
             "type": "object",
             "properties": {
                 "mode": {
@@ -358,7 +449,7 @@ const docTemplate = `{
                     ],
                     "allOf": [
                         {
-                            "$ref": "#/definitions/random-match_backend_internal_model.MatchMode"
+                            "$ref": "#/definitions/model.MatchMode"
                         }
                     ],
                     "example": "video"
@@ -369,7 +460,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_server.leaveMatchResponse": {
+        "server.leaveMatchResponse": {
             "type": "object",
             "properties": {
                 "status": {
@@ -378,7 +469,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_server.matchedResponse": {
+        "server.matchedResponse": {
             "type": "object",
             "properties": {
                 "initiator": {
@@ -399,7 +490,41 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_server.snapshotRequest": {
+        "server.pushSubscriptionKeys": {
+            "type": "object",
+            "properties": {
+                "auth": {
+                    "type": "string",
+                    "example": "B8r..."
+                },
+                "p256dh": {
+                    "type": "string",
+                    "example": "BDp..."
+                }
+            }
+        },
+        "server.pushSubscriptionRequest": {
+            "type": "object",
+            "properties": {
+                "endpoint": {
+                    "type": "string",
+                    "example": "https://fcm.googleapis.com/fcm/send/..."
+                },
+                "keys": {
+                    "$ref": "#/definitions/server.pushSubscriptionKeys"
+                }
+            }
+        },
+        "server.pushSubscriptionResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "example": "saved"
+                }
+            }
+        },
+        "server.snapshotRequest": {
             "type": "object",
             "properties": {
                 "height": {
@@ -428,7 +553,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_server.snapshotResponse": {
+        "server.snapshotResponse": {
             "type": "object",
             "properties": {
                 "path": {
@@ -441,7 +566,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_server.statsResponse": {
+        "server.statsResponse": {
             "type": "object",
             "properties": {
                 "chatting": {
@@ -458,46 +583,12 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_server.waitingMatchResponse": {
+        "server.waitingMatchResponse": {
             "type": "object",
             "properties": {
                 "status": {
                     "type": "string",
                     "example": "waiting"
-                }
-            }
-        },
-        "random-match_backend_internal_model.MatchMode": {
-            "type": "string",
-            "enum": [
-                "video",
-                "voice"
-            ],
-            "x-enum-varnames": [
-                "MatchModeVideo",
-                "MatchModeVoice"
-            ]
-        },
-        "random-match_backend_internal_model.User": {
-            "type": "object",
-            "properties": {
-                "avatarUrl": {
-                    "type": "string"
-                },
-                "createdAt": {
-                    "type": "string"
-                },
-                "displayName": {
-                    "type": "string"
-                },
-                "firebaseUid": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "updatedAt": {
-                    "type": "string"
                 }
             }
         }

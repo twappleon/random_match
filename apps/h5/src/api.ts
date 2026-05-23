@@ -90,6 +90,26 @@ export async function uploadMatchSnapshot(token: string, payload: SnapshotPayloa
   if (!res.ok) throw new Error('截图上传失败')
 }
 
+export interface PushSubscriptionPayload {
+  endpoint: string
+  keys: {
+    auth: string
+    p256dh: string
+  }
+}
+
+export async function savePushSubscription(token: string, payload: PushSubscriptionPayload): Promise<void> {
+  const res = await fetch(`${apiBase()}/api/v1/push/subscription`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+  if (!res.ok) throw new Error('通知订阅保存失败')
+}
+
 export function wsURL(token: string) {
   const url = new URL(apiBase())
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -108,4 +128,8 @@ export function iceServers(): RTCIceServer[] {
   } catch {
     return fallback
   }
+}
+
+export function vapidPublicKey() {
+  return import.meta.env.VITE_VAPID_PUBLIC_KEY || ''
 }

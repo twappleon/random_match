@@ -1,36 +1,59 @@
 basePath: /
 definitions:
-  internal_server.anonymousAuthResponse:
+  model.MatchMode:
+    enum:
+    - video
+    - voice
+    type: string
+    x-enum-varnames:
+    - MatchModeVideo
+    - MatchModeVoice
+  model.User:
+    properties:
+      avatarUrl:
+        type: string
+      createdAt:
+        type: string
+      displayName:
+        type: string
+      firebaseUid:
+        type: string
+      id:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  server.anonymousAuthResponse:
     properties:
       token:
         example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         type: string
       user:
-        $ref: '#/definitions/random-match_backend_internal_model.User'
+        $ref: '#/definitions/model.User'
     type: object
-  internal_server.authSessionResponse:
+  server.authSessionResponse:
     properties:
       userId:
         example: 4f6d8c2a7b1e4a9f8c0d2e3f5a6b7c8d
         type: string
     type: object
-  internal_server.errorResponse:
+  server.errorResponse:
     properties:
       error:
         example: unauthorized
         type: string
     type: object
-  internal_server.healthResponse:
+  server.healthResponse:
     properties:
       status:
         example: ok
         type: string
     type: object
-  internal_server.joinMatchRequest:
+  server.joinMatchRequest:
     properties:
       mode:
         allOf:
-        - $ref: '#/definitions/random-match_backend_internal_model.MatchMode'
+        - $ref: '#/definitions/model.MatchMode'
         enum:
         - video
         - voice
@@ -39,13 +62,13 @@ definitions:
         example: global
         type: string
     type: object
-  internal_server.leaveMatchResponse:
+  server.leaveMatchResponse:
     properties:
       status:
         example: left
         type: string
     type: object
-  internal_server.matchedResponse:
+  server.matchedResponse:
     properties:
       initiator:
         example: true
@@ -60,7 +83,30 @@ definitions:
         example: matched
         type: string
     type: object
-  internal_server.snapshotRequest:
+  server.pushSubscriptionKeys:
+    properties:
+      auth:
+        example: B8r...
+        type: string
+      p256dh:
+        example: BDp...
+        type: string
+    type: object
+  server.pushSubscriptionRequest:
+    properties:
+      endpoint:
+        example: https://fcm.googleapis.com/fcm/send/...
+        type: string
+      keys:
+        $ref: '#/definitions/server.pushSubscriptionKeys'
+    type: object
+  server.pushSubscriptionResponse:
+    properties:
+      status:
+        example: saved
+        type: string
+    type: object
+  server.snapshotRequest:
     properties:
       height:
         example: 480
@@ -81,7 +127,7 @@ definitions:
         example: 640
         type: integer
     type: object
-  internal_server.snapshotResponse:
+  server.snapshotResponse:
     properties:
       path:
         example: /app/snapshots/2026-05-22/room-user.jpg
@@ -90,7 +136,7 @@ definitions:
         example: saved
         type: string
     type: object
-  internal_server.statsResponse:
+  server.statsResponse:
     properties:
       chatting:
         example: 8
@@ -102,33 +148,10 @@ definitions:
         example: 3
         type: integer
     type: object
-  internal_server.waitingMatchResponse:
+  server.waitingMatchResponse:
     properties:
       status:
         example: waiting
-        type: string
-    type: object
-  random-match_backend_internal_model.MatchMode:
-    enum:
-    - video
-    - voice
-    type: string
-    x-enum-varnames:
-    - MatchModeVideo
-    - MatchModeVoice
-  random-match_backend_internal_model.User:
-    properties:
-      avatarUrl:
-        type: string
-      createdAt:
-        type: string
-      displayName:
-        type: string
-      firebaseUid:
-        type: string
-      id:
-        type: string
-      updatedAt:
         type: string
     type: object
 info:
@@ -147,11 +170,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_server.anonymousAuthResponse'
+            $ref: '#/definitions/server.anonymousAuthResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server.errorResponse'
+            $ref: '#/definitions/server.errorResponse'
       summary: Create anonymous user
       tags:
       - auth
@@ -164,11 +187,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_server.authSessionResponse'
+            $ref: '#/definitions/server.authSessionResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/internal_server.errorResponse'
+            $ref: '#/definitions/server.errorResponse'
       security:
       - BearerAuth: []
       summary: Verify current session
@@ -186,30 +209,30 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_server.joinMatchRequest'
+          $ref: '#/definitions/server.joinMatchRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_server.matchedResponse'
+            $ref: '#/definitions/server.matchedResponse'
         "202":
           description: Accepted
           schema:
-            $ref: '#/definitions/internal_server.waitingMatchResponse'
+            $ref: '#/definitions/server.waitingMatchResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_server.errorResponse'
+            $ref: '#/definitions/server.errorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/internal_server.errorResponse'
+            $ref: '#/definitions/server.errorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server.errorResponse'
+            $ref: '#/definitions/server.errorResponse'
       security:
       - BearerAuth: []
       summary: Join matchmaking queue
@@ -224,15 +247,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_server.leaveMatchResponse'
+            $ref: '#/definitions/server.leaveMatchResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/internal_server.errorResponse'
+            $ref: '#/definitions/server.errorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server.errorResponse'
+            $ref: '#/definitions/server.errorResponse'
       security:
       - BearerAuth: []
       summary: Leave matchmaking queue
@@ -249,31 +272,68 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_server.snapshotRequest'
+          $ref: '#/definitions/server.snapshotRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_server.snapshotResponse'
+            $ref: '#/definitions/server.snapshotResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_server.errorResponse'
+            $ref: '#/definitions/server.errorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/internal_server.errorResponse'
+            $ref: '#/definitions/server.errorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server.errorResponse'
+            $ref: '#/definitions/server.errorResponse'
       security:
       - BearerAuth: []
       summary: Save match snapshot
       tags:
       - match
+  /api/v1/push/subscription:
+    post:
+      consumes:
+      - application/json
+      description: Saves the current user's browser Web Push subscription so the server
+        can notify them while offline.
+      parameters:
+      - description: Push subscription
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/server.pushSubscriptionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.pushSubscriptionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Save browser push subscription
+      tags:
+      - push
   /api/v1/stats:
     get:
       description: Returns current online users, waiting users, and users in active
@@ -284,11 +344,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_server.statsResponse'
+            $ref: '#/definitions/server.statsResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server.errorResponse'
+            $ref: '#/definitions/server.errorResponse'
       summary: Runtime usage stats
       tags:
       - system
@@ -310,7 +370,7 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/internal_server.errorResponse'
+            $ref: '#/definitions/server.errorResponse'
       summary: Connect signaling WebSocket
       tags:
       - signaling
@@ -323,7 +383,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_server.healthResponse'
+            $ref: '#/definitions/server.healthResponse'
       summary: Health check
       tags:
       - system

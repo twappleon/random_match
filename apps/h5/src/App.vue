@@ -43,7 +43,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { anonymousAuth, fetchStats, iceServers, joinMatch, leaveMatch, uploadMatchSnapshot, verifySession, type MatchMode, wsURL } from './api'
+import { anonymousAuth, fetchStats, iceServers, joinMatch, leaveMatch, savePushSubscription, uploadMatchSnapshot, vapidPublicKey, verifySession, type MatchMode, wsURL } from './api'
 import { initAnalytics } from './firebase'
 
 type Status = 'idle' | 'waiting' | 'matched'
@@ -152,6 +152,49 @@ async function ensureAuth() {
   const auth = await anonymousAuth()
   token.value = auth.token
   localStorage.setItem('token', auth.token)
+}
+
+async function setupPushNotifications() {
+  const publicKey = vapidPublicKey()
+  if (!publicKey || !('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return
+
+  try {
+    await ensureAuth()
+    let permission = Notification.permission
+    if (permission === 'default') {
+      permission = await Notification.requestPermission()
+    }
+    if (permission !== 'granted') return
+
+    const registration = await navigator.serviceWorker.register('/sw.js')
+    const existing = await registration.pushManager.getSubscription()
+    const subscription = existing ?? await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey)
+    })
+    const payload = subscription.toJSON()
+    if (!payload.endpoint || !payload.keys?.auth || !payload.keys?.p256dh) return
+    await savePushSubscription(token.value, {
+      endpoint: payload.endpoint,
+      keys: {
+        auth: payload.keys.auth,
+        p256dh: payload.keys.p256dh
+      }
+    })
+  } catch {
+    // Push notifications are optional; matching must keep working if permission or registration fails.
+  }
+}
+
+function urlBase64ToUint8Array(value: string) {
+  const padding = '='.repeat((4 - value.length % 4) % 4)
+  const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const raw = window.atob(base64)
+  const output = new Uint8Array(raw.length)
+  for (let i = 0; i < raw.length; i += 1) {
+    output[i] = raw.charCodeAt(i)
+  }
+  return output
 }
 
 async function startMatch() {
@@ -619,5 +662,6 @@ onBeforeUnmount(() => {
 onMounted(() => {
   window.addEventListener('resize', ensurePreviewPosition)
   startStatsPolling()
+  void setupPushNotifications()
 })
 </script>

@@ -68,7 +68,40 @@ flutter run
 - `POST /api/v1/match/join`: 加入随机匹配队列
 - `POST /api/v1/match/leave`: 离开匹配队列
 - `POST /api/v1/match/snapshot`: 保存配对成功后的截图
+- `POST /api/v1/push/subscription`: 保存浏览器推送订阅
 - `GET /api/v1/ws?token=...`: WebRTC signaling WebSocket
+
+## 离线上线通知
+
+H5 会在浏览器允许通知后注册 Web Push 订阅。之后只要有人建立 WebSocket 上线，后端会推送一则「有人上线了」通知给目前未在线、且曾经授权通知的用户。
+
+注意事项：
+
+- 浏览器 Push Notification 需要 HTTPS，`localhost` 例外；直接用 `http://64.177.113.148` 通常不会生效。
+- 用户必须曾经打开过 H5 并允许通知，后端才有订阅可推送。
+- 后端对每个离线接收者有 10 分钟冷却，避免频繁刷新造成通知轰炸。
+
+生成 VAPID 密钥：
+
+```bash
+docker run --rm node:22-alpine sh -c "npm -g install web-push >/dev/null && web-push generate-vapid-keys"
+```
+
+把生成结果写入服务器 `.env`：
+
+```env
+VAPID_PUBLIC_KEY=你的PublicKey
+VAPID_PRIVATE_KEY=你的PrivateKey
+VAPID_SUBJECT=mailto:admin@danawang8899.com
+```
+
+更新并重建 H5 和后端：
+
+```bash
+cd ~/random_match
+git pull
+docker-compose -f deploy/docker-compose.prod.yml --env-file .env up -d --build --force-recreate backend h5
+```
 
 ## 线上截图文件
 

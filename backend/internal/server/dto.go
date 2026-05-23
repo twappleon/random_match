@@ -58,3 +58,17 @@ type snapshotResponse struct {
 	Status string `json:"status" example:"saved"`
 	Path   string `json:"path" example:"/app/snapshots/2026-05-22/room-user.jpg"`
 }
+
+type pushSubscriptionRequest struct {
+	Endpoint string               `json:"endpoint" example:"https://fcm.googleapis.com/fcm/send/..."`
+	Keys     pushSubscriptionKeys `json:"keys"`
+}
+
+type pushSubscriptionKeys struct {
+	Auth   string `json:"auth" example:"B8r..."`
+	P256dh string `json:"p256dh" example:"BDp..."`
+}
+
+type pushSubscriptionResponse struct {
+	Status string `json:"status" example:"saved"`
+}

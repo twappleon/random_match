@@ -7,6 +7,7 @@ services:
         VITE_API_BASE: ${VITE_API_BASE:-}
         VITE_ICE_SERVERS: ${VITE_ICE_SERVERS:-}
         VITE_FORCE_TURN: ${VITE_FORCE_TURN:-}
+        VITE_VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
     container_name: random-match-h5
     depends_on:
       backend:
@@ -31,6 +32,9 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
       SNAPSHOT_DIR: ${SNAPSHOT_DIR:-/app/snapshots}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
     volumes:
       - snapshots_data:/app/snapshots
     depends_on:
