@@ -1,6 +1,6 @@
 # Random Match
 
-线上随机视讯/语音交友项目脚手架。
+线上随机视讯交友项目脚手架。
 
 ## 技术栈
 
@@ -65,7 +65,7 @@ flutter run
 
 - `GET /health`: 健康检查
 - `POST /api/v1/auth/anonymous`: 匿名登录
-- `POST /api/v1/match/join`: 加入随机匹配队列
+- `POST /api/v1/match/join`: 加入随机视讯匹配队列
 - `POST /api/v1/match/leave`: 离开匹配队列
 - `POST /api/v1/match/snapshot`: 保存配对成功后的截图
 - `POST /api/v1/push/subscription`: 保存浏览器推送订阅

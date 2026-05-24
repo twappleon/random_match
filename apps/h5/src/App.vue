@@ -23,11 +23,8 @@
     </section>
 
     <nav class="toolbar" aria-label="match controls">
-      <button :class="{ active: mode === 'video' }" :aria-pressed="mode === 'video'" :disabled="loading || status !== 'idle'" @click="selectMode('video')">
-        视讯{{ mode === 'video' ? '中' : '' }}
-      </button>
-      <button :class="{ active: mode === 'voice' }" :aria-pressed="mode === 'voice'" :disabled="loading || status !== 'idle'" @click="selectMode('voice')">
-        语音{{ mode === 'voice' ? '中' : '' }}
+      <button class="camera" :disabled="loading || switchingCamera || !localStream" @click="switchCamera">
+        {{ switchingCamera ? '切换中' : nextCameraText }}
       </button>
       <button class="primary" :disabled="loading || status === 'waiting'" @click="startMatch">
         {{ actionText }}
@@ -52,6 +49,7 @@ const mode = ref<MatchMode>('video')
 const status = ref<Status>('idle')
 const loading = ref(false)
 const leaving = ref(false)
+const switchingCamera = ref(false)
 const pushStatus = ref<'idle' | 'enabled' | 'blocked' | 'unsupported' | 'unconfigured'>('idle')
 const errorText = ref('')
 const stats = ref({ online: 0, waiting: 0, chatting: 0 })
@@ -79,12 +77,12 @@ const previewDrag = ref<{
   originY: number
 } | null>(null)
 const capturedSnapshotRooms = new Set<string>()
+const cameraFacing = ref<'user' | 'environment'>('user')
 
 const stateText = computed(() => {
-  const modeText = mode.value === 'video' ? '视讯' : '语音'
-  if (status.value === 'waiting') return `正在寻找${modeText}用户…\n请让另一位用户在另一浏览器窗口点击「随机匹配」`
-  if (status.value === 'matched') return `已匹配，正在连接${modeText}…`
-  return `已选择${modeText}匹配，点击下方按钮开始`
+  if (status.value === 'waiting') return '正在寻找视讯用户…\n请让另一位用户在另一浏览器窗口点击「随机匹配」'
+  if (status.value === 'matched') return '已匹配，正在连接视讯…'
+  return '点击下方按钮开始视讯匹配'
 })
 
 const actionText = computed(() => {
@@ -101,6 +99,8 @@ const localPreviewStyle = computed(() => {
     top: `${previewPosition.value.y}px`
   }
 })
+
+const nextCameraText = computed(() => cameraFacing.value === 'user' ? '后镜头' : '前镜头')
 
 initAnalytics()
 
@@ -262,17 +262,81 @@ async function leaveCall() {
   }
 }
 
-async function selectMode(nextMode: MatchMode) {
-  if (mode.value === nextMode || loading.value) return
-  mode.value = nextMode
+async function switchCamera() {
+  if (switchingCamera.value || !localStream.value) return
+  switchingCamera.value = true
   errorText.value = ''
-
-  if (!localStream.value) return
+  const nextFacing = cameraFacing.value === 'user' ? 'environment' : 'user'
+  const currentFacing = cameraFacing.value
+  const oldVideoTracks = localStream.value.getVideoTracks()
 
   try {
-    await openMedia()
+    const nextStream = await openCameraForSwitch(nextFacing, oldVideoTracks)
+    const [nextVideoTrack] = nextStream.getVideoTracks()
+    if (!nextVideoTrack) throw new Error('没有找到可用的摄像头')
+
+    const currentStream = localStream.value
+    const audioTracks = currentStream.getAudioTracks()
+    localStream.value = new MediaStream([...audioTracks, nextVideoTrack])
+    if (localVideo.value) localVideo.value.srcObject = localStream.value
+    cameraFacing.value = nextFacing
+
+    const sender = peer.value?.getSenders().find((item) => item.track?.kind === 'video')
+    if (sender) {
+      await sender.replaceTrack(nextVideoTrack)
+      await setVideoSenderLimits(sender)
+    }
+    oldVideoTracks.forEach((track) => {
+      if (track !== nextVideoTrack) track.stop()
+    })
   } catch (error) {
+    await restoreCamera(currentFacing)
     errorText.value = toUserMessage(error)
+  } finally {
+    switchingCamera.value = false
+  }
+}
+
+async function openCameraForSwitch(facing: 'user' | 'environment', oldVideoTracks: MediaStreamTrack[]) {
+  try {
+    return await navigator.mediaDevices.getUserMedia({
+      video: videoConstraints(facing),
+      audio: false
+    })
+  } catch (error) {
+    oldVideoTracks.forEach((track) => track.stop())
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        video: videoConstraints(facing),
+        audio: false
+      })
+    } catch {
+      throw error
+    }
+  }
+}
+
+async function restoreCamera(facing: 'user' | 'environment') {
+  if (!localStream.value) return
+  try {
+    const fallbackStream = await navigator.mediaDevices.getUserMedia({
+      video: videoConstraints(facing),
+      audio: false
+    })
+    const [fallbackVideoTrack] = fallbackStream.getVideoTracks()
+    if (!fallbackVideoTrack) return
+
+    const audioTracks = localStream.value.getAudioTracks()
+    localStream.value = new MediaStream([...audioTracks, fallbackVideoTrack])
+    if (localVideo.value) localVideo.value.srcObject = localStream.value
+
+    const sender = peer.value?.getSenders().find((item) => item.track?.kind === 'video')
+    if (sender) {
+      await sender.replaceTrack(fallbackVideoTrack)
+      await setVideoSenderLimits(sender)
+    }
+  } catch {
+    // Keep the original switch error visible to the user.
   }
 }
 
@@ -282,14 +346,7 @@ async function openMedia() {
   }
   stopLocalMedia()
   localStream.value = await navigator.mediaDevices.getUserMedia({
-    video: mode.value === 'video'
-      ? {
-          width: { ideal: 480, max: 640 },
-          height: { ideal: 640, max: 720 },
-          frameRate: { ideal: 15, max: 20 },
-          facingMode: 'user'
-        }
-      : false,
+    video: videoConstraints(cameraFacing.value),
     audio: {
       echoCancellation: true,
       noiseSuppression: true,
@@ -299,6 +356,15 @@ async function openMedia() {
   if (localVideo.value) localVideo.value.srcObject = localStream.value
   await nextTick()
   ensurePreviewPosition()
+}
+
+function videoConstraints(facingMode: 'user' | 'environment') {
+  return {
+    width: { ideal: 480, max: 640 },
+    height: { ideal: 640, max: 720 },
+    frameRate: { ideal: 15, max: 20 },
+    facingMode: { ideal: facingMode }
+  }
 }
 
 async function openSocketWithAuth() {
@@ -412,7 +478,7 @@ async function captureAndUploadSnapshot(roomId: string, peerId = '') {
     await uploadMatchSnapshot(token.value, {
       roomId,
       peerId,
-      mode: mode.value,
+      mode: 'video',
       image: canvas.toDataURL('image/jpeg', 0.82),
       width: canvas.width,
       height: canvas.height
@@ -634,18 +700,22 @@ async function addLocalTracks(pc: RTCPeerConnection) {
   for (const track of stream.getTracks()) {
     const sender = pc.addTrack(track, stream)
     if (track.kind !== 'video') continue
-    const params = sender.getParameters()
-    params.encodings = params.encodings?.length ? params.encodings : [{}]
-    params.encodings[0] = {
-      ...params.encodings[0],
-      maxBitrate: 420_000,
-      maxFramerate: 20
-    }
-    try {
-      await sender.setParameters(params)
-    } catch {
-      // Some browsers reject sender parameter changes before negotiation.
-    }
+    await setVideoSenderLimits(sender)
+  }
+}
+
+async function setVideoSenderLimits(sender: RTCRtpSender) {
+  const params = sender.getParameters()
+  params.encodings = params.encodings?.length ? params.encodings : [{}]
+  params.encodings[0] = {
+    ...params.encodings[0],
+    maxBitrate: 420_000,
+    maxFramerate: 20
+  }
+  try {
+    await sender.setParameters(params)
+  } catch {
+    // Some browsers reject sender parameter changes before negotiation.
   }
 }
 
@@ -662,7 +732,7 @@ function toUserMessage(error: unknown) {
     return '请允许摄像头和麦克风权限后再开始匹配'
   }
   if (error instanceof DOMException && error.name === 'NotFoundError') {
-    return '没有找到可用的摄像头或麦克风'
+    return '没有找到可用的摄像头或麦克风，或当前设备没有另一个镜头'
   }
   if (error instanceof TypeError && error.message === 'Failed to fetch') {
     return '无法连接后端服务，请确认 API 服务已启动且允许当前页面域名'

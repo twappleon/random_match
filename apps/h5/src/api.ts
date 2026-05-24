@@ -5,7 +5,7 @@ function apiBase() {
   return window.location.origin
 }
 
-export type MatchMode = 'video' | 'voice'
+export type MatchMode = 'video'
 
 export interface AuthResponse {
   token: string
