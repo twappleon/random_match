@@ -20,7 +20,7 @@ type anonymousAuthResponse struct {
 }
 
 type joinMatchRequest struct {
-	Mode   model.MatchMode `json:"mode" example:"video" enums:"video,voice"`
+	Mode   model.MatchMode `json:"mode" example:"video" enums:"video"`
 	Region string          `json:"region" example:"global"`
 }
 
@@ -29,10 +29,11 @@ type waitingMatchResponse struct {
 }
 
 type matchedResponse struct {
-	Status    string `json:"status" example:"matched"`
-	RoomID    string `json:"roomId" example:"f9b9fdc7110a4a5cb6924f2d936cd58a"`
-	PeerID    string `json:"peerId" example:"5f6d8c2a7b1e4a9f8c0d2e3f5a6b7c8d"`
-	Initiator bool   `json:"initiator" example:"true"`
+	Status      string            `json:"status" example:"matched"`
+	RoomID      string            `json:"roomId" example:"f9b9fdc7110a4a5cb6924f2d936cd58a"`
+	PeerID      string            `json:"peerId" example:"5f6d8c2a7b1e4a9f8c0d2e3f5a6b7c8d"`
+	PeerProfile model.UserProfile `json:"peerProfile"`
+	Initiator   bool              `json:"initiator" example:"true"`
 }
 
 type leaveMatchResponse struct {
@@ -57,6 +58,25 @@ type snapshotRequest struct {
 type snapshotResponse struct {
 	Status string `json:"status" example:"saved"`
 	Path   string `json:"path" example:"/app/snapshots/2026-05-22/room-user.jpg"`
+}
+
+type updateProfileRequest struct {
+	DisplayName  string   `json:"displayName" example:"Star Voyager"`
+	Bio          string   `json:"bio" example:"喜欢深夜聊天、电影和旅行"`
+	Interests    []string `json:"interests" example:"movie,music,travel"`
+	AgeConfirmed bool     `json:"ageConfirmed" example:"true"`
+}
+
+type profileResponse struct {
+	User model.UserProfile `json:"user"`
+}
+
+type userActionRequest struct {
+	Reason string `json:"reason" example:"inappropriate behavior"`
+}
+
+type userActionResponse struct {
+	Status string `json:"status" example:"ok"`
 }
 
 type pushSubscriptionRequest struct {

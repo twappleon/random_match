@@ -20,6 +20,52 @@
         <span>等待 {{ stats.waiting }}</span>
         <span>聊天 {{ stats.chatting }}</span>
       </aside>
+
+      <section v-if="status === 'idle'" class="profile-panel" aria-label="profile setup">
+        <div class="profile-head">
+          <div class="avatar">{{ profileInitial }}</div>
+          <div>
+            <strong>匿名身份</strong>
+            <span>用兴趣和状态开始匹配</span>
+          </div>
+        </div>
+        <label>
+          昵称
+          <input v-model.trim="profileForm.displayName" maxlength="24" placeholder="星球旅人" />
+        </label>
+        <label>
+          简介
+          <textarea v-model.trim="profileForm.bio" maxlength="120" rows="2" placeholder="一句话介绍现在的你"></textarea>
+        </label>
+        <label>
+          兴趣标签
+          <input v-model="interestsText" placeholder="电影, 音乐, 旅行" />
+        </label>
+        <label class="age-check">
+          <input v-model="profileForm.ageConfirmed" type="checkbox" />
+          <span>我已满 18 岁并同意文明视讯</span>
+        </label>
+        <button class="save-profile" :disabled="savingProfile" @click="saveProfile">
+          {{ savingProfile ? '保存中' : '保存资料' }}
+        </button>
+      </section>
+
+      <section v-if="peerProfile" class="peer-card" aria-label="peer profile">
+        <div class="profile-head">
+          <div class="avatar">{{ peerInitial }}</div>
+          <div>
+            <strong>{{ peerProfile.displayName || '星球旅人' }}</strong>
+            <span>{{ peerProfile.bio || '刚刚来到这个星球' }}</span>
+          </div>
+        </div>
+        <div class="tags">
+          <span v-for="item in peerProfile.interests || []" :key="item">{{ item }}</span>
+        </div>
+        <div class="safety-actions">
+          <button :disabled="safetyLoading" @click="reportPeer">举报</button>
+          <button :disabled="safetyLoading" @click="blockPeer">拉黑</button>
+        </div>
+      </section>
     </section>
 
     <nav class="toolbar" aria-label="match controls">
@@ -40,7 +86,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { anonymousAuth, fetchStats, iceServers, joinMatch, leaveMatch, savePushSubscription, sendPushTest, uploadMatchSnapshot, vapidPublicKey, verifySession, type MatchMode, wsURL } from './api'
+import { anonymousAuth, blockUser, fetchProfile, fetchStats, iceServers, joinMatch, leaveMatch, reportUser, savePushSubscription, sendPushTest, updateProfile, uploadMatchSnapshot, vapidPublicKey, verifySession, type MatchMode, type UserProfile, wsURL } from './api'
 import { initAnalytics } from './firebase'
 
 type Status = 'idle' | 'waiting' | 'matched'
@@ -50,8 +96,18 @@ const status = ref<Status>('idle')
 const loading = ref(false)
 const leaving = ref(false)
 const switchingCamera = ref(false)
+const savingProfile = ref(false)
+const safetyLoading = ref(false)
 const pushStatus = ref<'idle' | 'enabled' | 'blocked' | 'unsupported' | 'unconfigured'>('idle')
 const errorText = ref('')
+const profile = ref<UserProfile | null>(null)
+const peerProfile = ref<UserProfile | null>(null)
+const profileForm = ref({
+  displayName: '星球旅人',
+  bio: '',
+  ageConfirmed: false
+})
+const interestsText = ref('聊天, 电影, 音乐')
 const stats = ref({ online: 0, waiting: 0, chatting: 0 })
 const statsTimer = ref<number | null>(null)
 const token = ref(localStorage.getItem('token') ?? '')
@@ -101,6 +157,8 @@ const localPreviewStyle = computed(() => {
 })
 
 const nextCameraText = computed(() => cameraFacing.value === 'user' ? '后镜头' : '前镜头')
+const profileInitial = computed(() => (profileForm.value.displayName || '星').trim().slice(0, 1).toUpperCase())
+const peerInitial = computed(() => (peerProfile.value?.displayName || '星').trim().slice(0, 1).toUpperCase())
 
 initAnalytics()
 
@@ -153,6 +211,57 @@ async function ensureAuth() {
   const auth = await anonymousAuth()
   token.value = auth.token
   localStorage.setItem('token', auth.token)
+  setProfile(auth.user)
+}
+
+function setProfile(nextProfile: UserProfile) {
+  profile.value = nextProfile
+  profileForm.value = {
+    displayName: nextProfile.displayName || '星球旅人',
+    bio: nextProfile.bio || '',
+    ageConfirmed: Boolean(nextProfile.ageConfirmed)
+  }
+  interestsText.value = (nextProfile.interests?.length ? nextProfile.interests : ['聊天', '电影', '音乐']).join(', ')
+}
+
+async function loadProfile() {
+  try {
+    await ensureAuth()
+    setProfile(await fetchProfile(token.value))
+  } catch {
+    // Profile is refreshed again before matching.
+  }
+}
+
+function parsedInterests() {
+  const items = interestsText.value
+    .split(/[,，]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+  return Array.from(new Set(items)).slice(0, 6)
+}
+
+async function saveProfile() {
+  savingProfile.value = true
+  errorText.value = ''
+  try {
+    await persistProfile()
+  } catch (error) {
+    errorText.value = toUserMessage(error)
+  } finally {
+    savingProfile.value = false
+  }
+}
+
+async function persistProfile() {
+  await ensureAuth()
+  const updated = await updateProfile(token.value, {
+    displayName: profileForm.value.displayName,
+    bio: profileForm.value.bio,
+    interests: parsedInterests(),
+    ageConfirmed: profileForm.value.ageConfirmed
+  })
+  setProfile(updated)
 }
 
 async function setupPushNotifications(promptUser = false) {
@@ -225,6 +334,10 @@ async function startMatch() {
   errorText.value = ''
   try {
     resetCall()
+    if (!profileForm.value.ageConfirmed) {
+      throw new Error('请先确认已满 18 岁并保存资料')
+    }
+    await persistProfile()
     await setupPushNotifications(pushStatus.value === 'idle')
     await ensureAuth()
     await openMedia()
@@ -232,6 +345,7 @@ async function startMatch() {
     const result = await joinMatch(token.value, mode.value)
     status.value = result.status === 'matched' ? 'matched' : 'waiting'
     if (result.status === 'matched' && result.roomId) {
+      peerProfile.value = result.peerProfile || null
       void captureAndUploadSnapshot(result.roomId, result.peerId)
     }
     if (result.status === 'matched' && result.initiator && result.peerId) {
@@ -417,6 +531,7 @@ function openSocket() {
         if (msg.type === 'pong') return
         if (msg.type === 'matched') {
           status.value = 'matched'
+          peerProfile.value = msg.peerProfile || null
           if (msg.roomId) void captureAndUploadSnapshot(msg.roomId, msg.peerId)
           if (msg.initiator && msg.peerId) await createPeer(msg.peerId)
           return
@@ -577,6 +692,7 @@ function teardownPeer() {
   peer.value = null
   activePeerId.value = null
   pendingCandidates.value = []
+  peerProfile.value = null
   if (remoteVideo.value) remoteVideo.value.srcObject = null
 }
 
@@ -599,6 +715,36 @@ function resetCall(message = '') {
   teardownPeer()
   status.value = 'idle'
   if (message) errorText.value = message
+}
+
+async function reportPeer() {
+  if (!activePeerId.value || safetyLoading.value) return
+  safetyLoading.value = true
+  errorText.value = ''
+  try {
+    await reportUser(token.value, activePeerId.value, 'user reported during match')
+    errorText.value = '已收到举报'
+  } catch (error) {
+    errorText.value = toUserMessage(error)
+  } finally {
+    safetyLoading.value = false
+  }
+}
+
+async function blockPeer() {
+  if (!activePeerId.value || safetyLoading.value) return
+  safetyLoading.value = true
+  errorText.value = ''
+  try {
+    await blockUser(token.value, activePeerId.value)
+    closeSocket()
+    stopLocalMedia()
+    resetCall('已拉黑对方，不会再匹配到此用户')
+  } catch (error) {
+    errorText.value = toUserMessage(error)
+  } finally {
+    safetyLoading.value = false
+  }
 }
 
 async function addRemoteCandidate(candidate: RTCIceCandidateInit) {
@@ -756,6 +902,7 @@ onBeforeUnmount(() => {
 onMounted(() => {
   window.addEventListener('resize', ensurePreviewPosition)
   startStatsPolling()
+  void loadProfile()
   void setupPushNotifications(false)
 })
 </script>

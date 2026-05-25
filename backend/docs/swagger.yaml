@@ -10,7 +10,11 @@ definitions:
     - MatchModeVoice
   model.User:
     properties:
+      ageConfirmed:
+        type: boolean
       avatarUrl:
+        type: string
+      bio:
         type: string
       createdAt:
         type: string
@@ -20,8 +24,29 @@ definitions:
         type: string
       id:
         type: string
+      interests:
+        items:
+          type: string
+        type: array
       updatedAt:
         type: string
+    type: object
+  model.UserProfile:
+    properties:
+      ageConfirmed:
+        type: boolean
+      avatarUrl:
+        type: string
+      bio:
+        type: string
+      displayName:
+        type: string
+      id:
+        type: string
+      interests:
+        items:
+          type: string
+        type: array
     type: object
   server.anonymousAuthResponse:
     properties:
@@ -56,7 +81,6 @@ definitions:
         - $ref: '#/definitions/model.MatchMode'
         enum:
         - video
-        - voice
         example: video
       region:
         example: global
@@ -76,12 +100,19 @@ definitions:
       peerId:
         example: 5f6d8c2a7b1e4a9f8c0d2e3f5a6b7c8d
         type: string
+      peerProfile:
+        $ref: '#/definitions/model.UserProfile'
       roomId:
         example: f9b9fdc7110a4a5cb6924f2d936cd58a
         type: string
       status:
         example: matched
         type: string
+    type: object
+  server.profileResponse:
+    properties:
+      user:
+        $ref: '#/definitions/model.UserProfile'
     type: object
   server.pushSubscriptionKeys:
     properties:
@@ -154,6 +185,38 @@ definitions:
         example: 3
         type: integer
     type: object
+  server.updateProfileRequest:
+    properties:
+      ageConfirmed:
+        example: true
+        type: boolean
+      bio:
+        example: 喜欢深夜聊天、电影和旅行
+        type: string
+      displayName:
+        example: Star Voyager
+        type: string
+      interests:
+        example:
+        - movie
+        - music
+        - travel
+        items:
+          type: string
+        type: array
+    type: object
+  server.userActionRequest:
+    properties:
+      reason:
+        example: inappropriate behavior
+        type: string
+    type: object
+  server.userActionResponse:
+    properties:
+      status:
+        example: ok
+        type: string
+    type: object
   server.waitingMatchResponse:
     properties:
       status:
@@ -207,8 +270,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Adds the current user to a voice or video matchmaking queue. Returns
-        202 while waiting or 200 when matched.
+      description: Adds the current user to the video matchmaking queue. Returns 202
+        while waiting or 200 when matched.
       parameters:
       - description: Match preferences
         in: body
@@ -303,6 +366,64 @@ paths:
       summary: Save match snapshot
       tags:
       - match
+  /api/v1/me:
+    get:
+      description: Returns the current user's anonymous social profile.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.profileResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current user profile
+      tags:
+      - profile
+    put:
+      consumes:
+      - application/json
+      description: Updates display name, bio, interests, and age confirmation.
+      parameters:
+      - description: Profile fields
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/server.updateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.profileResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update current user profile
+      tags:
+      - profile
   /api/v1/push/subscription:
     post:
       consumes:
@@ -386,6 +507,78 @@ paths:
       summary: Runtime usage stats
       tags:
       - system
+  /api/v1/users/{id}/block:
+    post:
+      consumes:
+      - application/json
+      description: Blocks another user and prevents future matches.
+      parameters:
+      - description: Target user id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Reason
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/server.userActionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.userActionResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Block a user
+      tags:
+      - safety
+  /api/v1/users/{id}/report:
+    post:
+      consumes:
+      - application/json
+      description: Reports another user for moderation review.
+      parameters:
+      - description: Target user id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Reason
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/server.userActionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.userActionResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Report a user
+      tags:
+      - safety
   /api/v1/ws:
     get:
       description: Upgrades to a WebSocket used for match and WebRTC signaling messages.

@@ -65,11 +65,21 @@ flutter run
 
 - `GET /health`: 健康检查
 - `POST /api/v1/auth/anonymous`: 匿名登录
+- `GET /api/v1/me`: 读取匿名身份资料
+- `PUT /api/v1/me`: 更新昵称、简介、兴趣标签和年龄确认
 - `POST /api/v1/match/join`: 加入随机视讯匹配队列
 - `POST /api/v1/match/leave`: 离开匹配队列
 - `POST /api/v1/match/snapshot`: 保存配对成功后的截图
+- `POST /api/v1/users/{id}/report`: 举报用户
+- `POST /api/v1/users/{id}/block`: 拉黑用户
 - `POST /api/v1/push/subscription`: 保存浏览器推送订阅
 - `GET /api/v1/ws?token=...`: WebRTC signaling WebSocket
+
+## 匿名社交资料
+
+H5 空闲状态会显示匿名身份卡，用户可填写昵称、简介、兴趣标签，并确认已满 18 岁。开始随机匹配时会自动保存资料；配对成功后双方会看到对方的匿名资料卡，可直接举报或拉黑。
+
+拉黑后当前通话会结束，后端会记录拉黑关系并尽量跳过后续匹配中的该用户。
 
 ## 离线上线通知
 

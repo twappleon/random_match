@@ -9,11 +9,16 @@ export type MatchMode = 'video'
 
 export interface AuthResponse {
   token: string
-  user: {
-    id: string
-    displayName: string
-    avatarUrl: string
-  }
+  user: UserProfile
+}
+
+export interface UserProfile {
+  id: string
+  displayName: string
+  avatarUrl: string
+  bio?: string
+  interests?: string[]
+  ageConfirmed: boolean
 }
 
 export async function verifySession(token: string): Promise<boolean> {
@@ -33,6 +38,7 @@ export interface MatchResponse {
   status: 'waiting' | 'matched'
   roomId?: string
   peerId?: string
+  peerProfile?: UserProfile
   initiator?: boolean
 }
 
@@ -48,6 +54,34 @@ export async function fetchStats(): Promise<StatsResponse> {
   return res.json()
 }
 
+export async function fetchProfile(token: string): Promise<UserProfile> {
+  const res = await fetch(`${apiBase()}/api/v1/me`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error('读取资料失败')
+  const payload = await res.json()
+  return payload.user
+}
+
+export async function updateProfile(token: string, payload: {
+  displayName: string
+  bio: string
+  interests: string[]
+  ageConfirmed: boolean
+}): Promise<UserProfile> {
+  const res = await fetch(`${apiBase()}/api/v1/me`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+  if (!res.ok) throw new Error('保存资料失败')
+  const data = await res.json()
+  return data.user
+}
+
 export async function joinMatch(token: string, mode: MatchMode, region = 'global'): Promise<MatchResponse> {
   const res = await fetch(`${apiBase()}/api/v1/match/join`, {
     method: 'POST',
@@ -57,6 +91,7 @@ export async function joinMatch(token: string, mode: MatchMode, region = 'global
     },
     body: JSON.stringify({ mode, region })
   })
+  if (res.status === 409) throw new Error('已跳过拉黑用户，请再点一次随机匹配')
   if (!res.ok && res.status !== 202) throw new Error('加入匹配失败，请稍后重试')
   return res.json()
 }
@@ -67,6 +102,26 @@ export async function leaveMatch(token: string): Promise<void> {
     headers: { Authorization: `Bearer ${token}` }
   })
   if (!res.ok) throw new Error('退出失败，请稍后重试')
+}
+
+export async function blockUser(token: string, userId: string): Promise<void> {
+  const res = await fetch(`${apiBase()}/api/v1/users/${encodeURIComponent(userId)}/block`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error('拉黑失败')
+}
+
+export async function reportUser(token: string, userId: string, reason = 'inappropriate behavior'): Promise<void> {
+  const res = await fetch(`${apiBase()}/api/v1/users/${encodeURIComponent(userId)}/report`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ reason })
+  })
+  if (!res.ok) throw new Error('举报失败')
 }
 
 export interface SnapshotPayload {

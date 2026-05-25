@@ -11,12 +11,13 @@ import (
 )
 
 type SignalMessage struct {
-	Type      string          `json:"type"`
-	RoomID    string          `json:"roomId,omitempty"`
-	PeerID    string          `json:"peerId,omitempty"`
-	Mode      string          `json:"mode,omitempty"`
-	Initiator bool            `json:"initiator,omitempty"`
-	Data      json.RawMessage `json:"data,omitempty"`
+	Type        string          `json:"type"`
+	RoomID      string          `json:"roomId,omitempty"`
+	PeerID      string          `json:"peerId,omitempty"`
+	PeerProfile any             `json:"peerProfile,omitempty"`
+	Mode        string          `json:"mode,omitempty"`
+	Initiator   bool            `json:"initiator,omitempty"`
+	Data        json.RawMessage `json:"data,omitempty"`
 }
 
 type Hub struct {

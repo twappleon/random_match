@@ -79,7 +79,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Adds the current user to a voice or video matchmaking queue. Returns 202 while waiting or 200 when matched.",
+                "description": "Adds the current user to the video matchmaking queue. Returns 202 while waiting or 200 when matched.",
                 "consumes": [
                     "application/json"
                 ],
@@ -229,6 +229,98 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the current user's anonymous social profile.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profile"
+                ],
+                "summary": "Get current user profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.profileResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/server.errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.errorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Updates display name, bio, interests, and age confirmation.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profile"
+                ],
+                "summary": "Update current user profile",
+                "parameters": [
+                    {
+                        "description": "Profile fields",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/server.updateProfileRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.profileResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/server.errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/push/subscription": {
             "post": {
                 "security": [
@@ -355,6 +447,120 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/users/{id}/block": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Blocks another user and prevents future matches.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "safety"
+                ],
+                "summary": "Block a user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Target user id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Reason",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/server.userActionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.userActionResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/server.errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/{id}/report": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Reports another user for moderation review.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "safety"
+                ],
+                "summary": "Report a user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Target user id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Reason",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/server.userActionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.userActionResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/server.errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ws": {
             "get": {
                 "description": "Upgrades to a WebSocket used for match and WebRTC signaling messages. Pass the JWT as the token query parameter.",
@@ -423,7 +629,13 @@ const docTemplate = `{
         "model.User": {
             "type": "object",
             "properties": {
+                "ageConfirmed": {
+                    "type": "boolean"
+                },
                 "avatarUrl": {
+                    "type": "string"
+                },
+                "bio": {
                     "type": "string"
                 },
                 "createdAt": {
@@ -438,8 +650,40 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "interests": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "updatedAt": {
                     "type": "string"
+                }
+            }
+        },
+        "model.UserProfile": {
+            "type": "object",
+            "properties": {
+                "ageConfirmed": {
+                    "type": "boolean"
+                },
+                "avatarUrl": {
+                    "type": "string"
+                },
+                "bio": {
+                    "type": "string"
+                },
+                "displayName": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "interests": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -487,8 +731,7 @@ const docTemplate = `{
             "properties": {
                 "mode": {
                     "enum": [
-                        "video",
-                        "voice"
+                        "video"
                     ],
                     "allOf": [
                         {
@@ -523,6 +766,9 @@ const docTemplate = `{
                     "type": "string",
                     "example": "5f6d8c2a7b1e4a9f8c0d2e3f5a6b7c8d"
                 },
+                "peerProfile": {
+                    "$ref": "#/definitions/model.UserProfile"
+                },
                 "roomId": {
                     "type": "string",
                     "example": "f9b9fdc7110a4a5cb6924f2d936cd58a"
@@ -530,6 +776,14 @@ const docTemplate = `{
                 "status": {
                     "type": "string",
                     "example": "matched"
+                }
+            }
+        },
+        "server.profileResponse": {
+            "type": "object",
+            "properties": {
+                "user": {
+                    "$ref": "#/definitions/model.UserProfile"
                 }
             }
         },
@@ -632,6 +886,52 @@ const docTemplate = `{
                 "waiting": {
                     "type": "integer",
                     "example": 3
+                }
+            }
+        },
+        "server.updateProfileRequest": {
+            "type": "object",
+            "properties": {
+                "ageConfirmed": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "bio": {
+                    "type": "string",
+                    "example": "喜欢深夜聊天、电影和旅行"
+                },
+                "displayName": {
+                    "type": "string",
+                    "example": "Star Voyager"
+                },
+                "interests": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "movie",
+                        "music",
+                        "travel"
+                    ]
+                }
+            }
+        },
+        "server.userActionRequest": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string",
+                    "example": "inappropriate behavior"
+                }
+            }
+        },
+        "server.userActionResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "example": "ok"
                 }
             }
         },

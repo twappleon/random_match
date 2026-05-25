@@ -16,6 +16,7 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"random-match/backend/internal/config"
 	"random-match/backend/internal/model"
@@ -55,9 +56,13 @@ func (s *Server) Routes() http.Handler {
 	auth := v1.Group("")
 	auth.Use(s.requireAuth())
 	auth.GET("/auth/session", s.authSession)
+	auth.GET("/me", s.getProfile)
+	auth.PUT("/me", s.updateProfile)
 	auth.POST("/match/join", s.joinMatch)
 	auth.POST("/match/leave", s.leaveMatch)
 	auth.POST("/match/snapshot", s.saveMatchSnapshot)
+	auth.POST("/users/:id/block", s.blockUser)
+	auth.POST("/users/:id/report", s.reportUser)
 	auth.POST("/push/subscription", s.savePushSubscriptionHandler)
 	auth.POST("/push/test", s.testPushHandler)
 
@@ -102,10 +107,13 @@ func (s *Server) authSession(c *gin.Context) {
 func (s *Server) anonymousAuth(c *gin.Context) {
 	now := time.Now().UTC()
 	user := model.User{
-		ID:          newID(),
-		DisplayName: "Guest",
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:           newID(),
+		DisplayName:  "星球旅人",
+		AvatarURL:    defaultAvatarURL(),
+		Interests:    []string{"聊天", "电影", "音乐"},
+		AgeConfirmed: false,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
@@ -129,6 +137,89 @@ func (s *Server) anonymousAuth(c *gin.Context) {
 		"token": token,
 		"user":  user,
 	})
+}
+
+// getProfile godoc
+//
+//	@Summary		Get current user profile
+//	@Description	Returns the current user's anonymous social profile.
+//	@Tags			profile
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	profileResponse
+//	@Failure		401	{object}	errorResponse
+//	@Failure		500	{object}	errorResponse
+//	@Router			/api/v1/me [get]
+func (s *Server) getProfile(c *gin.Context) {
+	userID := userIDFromContext(c)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+	defer cancel()
+	profile, err := s.userProfile(ctx, userID)
+	if err != nil {
+		log.Printf("profile get failed user_id=%s err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "get profile failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"user": profile})
+}
+
+// updateProfile godoc
+//
+//	@Summary		Update current user profile
+//	@Description	Updates display name, bio, interests, and age confirmation.
+//	@Tags			profile
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			request	body		updateProfileRequest	true	"Profile fields"
+//	@Success		200		{object}	profileResponse
+//	@Failure		400		{object}	errorResponse
+//	@Failure		401		{object}	errorResponse
+//	@Failure		500		{object}	errorResponse
+//	@Router			/api/v1/me [put]
+func (s *Server) updateProfile(c *gin.Context) {
+	userID := userIDFromContext(c)
+	var req updateProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
+		return
+	}
+
+	displayName := strings.TrimSpace(req.DisplayName)
+	if displayName == "" {
+		displayName = "星球旅人"
+	}
+	if len([]rune(displayName)) > 24 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "displayName is too long"})
+		return
+	}
+	bio := strings.TrimSpace(req.Bio)
+	if len([]rune(bio)) > 120 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bio is too long"})
+		return
+	}
+	interests := normalizeInterests(req.Interests)
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+	_, err := s.db.DB.Collection("users").UpdateOne(ctx, bson.M{"_id": userID}, bson.M{"$set": bson.M{
+		"displayName":  displayName,
+		"bio":          bio,
+		"interests":    interests,
+		"ageConfirmed": req.AgeConfirmed,
+		"updatedAt":    time.Now().UTC(),
+	}})
+	if err != nil {
+		log.Printf("profile update failed user_id=%s err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "update profile failed"})
+		return
+	}
+	profile, err := s.userProfile(ctx, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "get profile failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"user": profile})
 }
 
 // stats godoc
@@ -162,7 +253,7 @@ func (s *Server) stats(c *gin.Context) {
 // joinMatch godoc
 //
 //	@Summary		Join matchmaking queue
-//	@Description	Adds the current user to a voice or video matchmaking queue. Returns 202 while waiting or 200 when matched.
+//	@Description	Adds the current user to the video matchmaking queue. Returns 202 while waiting or 200 when matched.
 //	@Tags			match
 //	@Accept			json
 //	@Produce		json
@@ -182,9 +273,9 @@ func (s *Server) joinMatch(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
 		return
 	}
-	if req.Mode != model.MatchModeVideo && req.Mode != model.MatchModeVoice {
+	if req.Mode != model.MatchModeVideo {
 		log.Printf("match join invalid_mode user_id=%s mode=%q", userID, req.Mode)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "mode must be video or voice"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "mode must be video"})
 		return
 	}
 	if strings.TrimSpace(req.Region) == "" {
@@ -225,16 +316,48 @@ func (s *Server) joinMatch(c *gin.Context) {
 		c.JSON(http.StatusAccepted, gin.H{"status": "waiting"})
 		return
 	}
+	blocked, err := s.isBlockedEither(ctx, userID, partner.UserID)
+	if err != nil {
+		log.Printf("match block check failed user_id=%s peer_id=%s err=%v", userID, partner.UserID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
+		return
+	}
+	if blocked {
+		log.Printf("match blocked_pair user_id=%s peer_id=%s mode=%s region=%s", userID, partner.UserID, req.Mode, req.Region)
+		if err := s.cache.Client.RPush(ctx, queueKey, partner.UserID).Err(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
+			return
+		}
+		if err := s.cache.Client.SAdd(ctx, queueKey+":members", partner.UserID).Err(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
+			return
+		}
+		c.JSON(http.StatusConflict, gin.H{"error": "blocked match skipped, retry"})
+		return
+	}
+	selfProfile, err := s.userProfile(ctx, userID)
+	if err != nil {
+		log.Printf("match self profile failed user_id=%s err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
+		return
+	}
+	partnerProfile, err := s.userProfile(ctx, partner.UserID)
+	if err != nil {
+		log.Printf("match partner profile failed user_id=%s peer_id=%s err=%v", userID, partner.UserID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
+		return
+	}
 	roomID := newID()
 	log.Printf("match paired room_id=%s user_id=%s peer_id=%s mode=%s region=%s", roomID, userID, partner.UserID, req.Mode, req.Region)
 	s.hub.Pair(userID, partner.UserID)
-	s.hub.Notify(partner.UserID, SignalMessage{Type: "matched", RoomID: roomID, PeerID: userID, Mode: string(req.Mode), Initiator: false})
-	s.hub.Notify(userID, SignalMessage{Type: "matched", RoomID: roomID, PeerID: partner.UserID, Mode: string(req.Mode), Initiator: true})
+	s.hub.Notify(partner.UserID, SignalMessage{Type: "matched", RoomID: roomID, PeerID: userID, PeerProfile: selfProfile, Mode: string(req.Mode), Initiator: false})
+	s.hub.Notify(userID, SignalMessage{Type: "matched", RoomID: roomID, PeerID: partner.UserID, PeerProfile: partnerProfile, Mode: string(req.Mode), Initiator: true})
 	c.JSON(http.StatusOK, gin.H{
-		"status":    "matched",
-		"roomId":    roomID,
-		"peerId":    partner.UserID,
-		"initiator": true,
+		"status":      "matched",
+		"roomId":      roomID,
+		"peerId":      partner.UserID,
+		"peerProfile": partnerProfile,
+		"initiator":   true,
 	})
 }
 
@@ -265,6 +388,95 @@ func (s *Server) leaveMatch(c *gin.Context) {
 	}
 	log.Printf("match leave user_id=%s", userID)
 	c.JSON(http.StatusOK, gin.H{"status": "left"})
+}
+
+// blockUser godoc
+//
+//	@Summary		Block a user
+//	@Description	Blocks another user and prevents future matches.
+//	@Tags			safety
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path	string				true	"Target user id"
+//	@Param			request	body	userActionRequest	false	"Reason"
+//	@Success		200		{object}	userActionResponse
+//	@Failure		401		{object}	errorResponse
+//	@Failure		500		{object}	errorResponse
+//	@Router			/api/v1/users/{id}/block [post]
+func (s *Server) blockUser(c *gin.Context) {
+	userID := userIDFromContext(c)
+	targetID := strings.TrimSpace(c.Param("id"))
+	if targetID == "" || targetID == userID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid target"})
+		return
+	}
+	now := time.Now().UTC()
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+	block := model.UserBlock{
+		ID:        userID + ":" + targetID,
+		UserID:    userID,
+		BlockedID: targetID,
+		CreatedAt: now,
+	}
+	_, err := s.db.DB.Collection("user_blocks").UpdateOne(ctx, bson.M{"_id": block.ID}, bson.M{"$setOnInsert": block}, updateUpsert())
+	if err != nil {
+		log.Printf("user block failed user_id=%s target_id=%s err=%v", userID, targetID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "block failed"})
+		return
+	}
+	if peerID := s.hub.Unpair(userID); peerID != "" {
+		s.hub.Notify(peerID, SignalMessage{Type: "peer-left", PeerID: userID})
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "blocked"})
+}
+
+// reportUser godoc
+//
+//	@Summary		Report a user
+//	@Description	Reports another user for moderation review.
+//	@Tags			safety
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path	string				true	"Target user id"
+//	@Param			request	body	userActionRequest	false	"Reason"
+//	@Success		200		{object}	userActionResponse
+//	@Failure		401		{object}	errorResponse
+//	@Failure		500		{object}	errorResponse
+//	@Router			/api/v1/users/{id}/report [post]
+func (s *Server) reportUser(c *gin.Context) {
+	userID := userIDFromContext(c)
+	targetID := strings.TrimSpace(c.Param("id"))
+	if targetID == "" || targetID == userID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid target"})
+		return
+	}
+	var req userActionRequest
+	_ = c.ShouldBindJSON(&req)
+	reason := strings.TrimSpace(req.Reason)
+	if reason == "" {
+		reason = "user report"
+	}
+	if len([]rune(reason)) > 200 {
+		reason = string([]rune(reason)[:200])
+	}
+	report := model.UserReport{
+		ID:         newID(),
+		ReporterID: userID,
+		TargetID:   targetID,
+		Reason:     reason,
+		CreatedAt:  time.Now().UTC(),
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+	if _, err := s.db.DB.Collection("user_reports").InsertOne(ctx, report); err != nil {
+		log.Printf("user report failed user_id=%s target_id=%s err=%v", userID, targetID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "report failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "reported"})
 }
 
 // saveMatchSnapshot godoc
@@ -478,6 +690,60 @@ func userIDFromContext(c *gin.Context) string {
 	return value
 }
 
+func (s *Server) userProfile(ctx context.Context, userID string) (model.UserProfile, error) {
+	var user model.User
+	if err := s.db.DB.Collection("users").FindOne(ctx, bson.M{"_id": userID}).Decode(&user); err != nil {
+		return model.UserProfile{}, err
+	}
+	return model.UserProfile{
+		ID:           user.ID,
+		DisplayName:  user.DisplayName,
+		AvatarURL:    user.AvatarURL,
+		Bio:          user.Bio,
+		Interests:    user.Interests,
+		AgeConfirmed: user.AgeConfirmed,
+	}, nil
+}
+
+func (s *Server) isBlockedEither(ctx context.Context, userID, peerID string) (bool, error) {
+	count, err := s.db.DB.Collection("user_blocks").CountDocuments(ctx, bson.M{"$or": []bson.M{
+		{"userId": userID, "blockedId": peerID},
+		{"userId": peerID, "blockedId": userID},
+	}})
+	return count > 0, err
+}
+
+func normalizeInterests(items []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, 6)
+	for _, item := range items {
+		value := strings.TrimSpace(item)
+		if value == "" || seen[value] {
+			continue
+		}
+		if len([]rune(value)) > 12 {
+			value = string([]rune(value)[:12])
+		}
+		seen[value] = true
+		out = append(out, value)
+		if len(out) == 6 {
+			break
+		}
+	}
+	if len(out) == 0 {
+		return []string{"聊天"}
+	}
+	return out
+}
+
+func defaultAvatarURL() string {
+	return ""
+}
+
+func updateUpsert() *options.UpdateOptions {
+	return options.Update().SetUpsert(true)
+}
+
 func (s *Server) cors() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
@@ -489,7 +755,7 @@ func (s *Server) cors() gin.HandlerFunc {
 			}
 		}
 		c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
-		c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)
 			return
