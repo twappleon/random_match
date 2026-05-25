@@ -701,8 +701,9 @@ function stopPreviewDrag(event: PointerEvent) {
 
 function teardownPeer() {
   clearPeerDisconnectTimer()
-  peer.value?.close()
+  const currentPeer = peer.value
   peer.value = null
+  currentPeer?.close()
   activePeerId.value = null
   pendingCandidates.value = []
   peerProfile.value = null
@@ -788,9 +789,12 @@ async function createPeer(peerId: string) {
   const pc = buildPeer(peerId)
   peer.value = pc
   await addLocalTracks(pc)
+  if (!isCurrentPeer(pc)) return
 
   const offer = await pc.createOffer()
+  if (!isCurrentPeer(pc)) return
   await pc.setLocalDescription(offer)
+  if (!isCurrentPeer(pc)) return
   send({ type: 'offer', peerId, data: pc.localDescription })
 }
 
@@ -803,12 +807,21 @@ async function acceptOffer(peerId: string, offer: RTCSessionDescriptionInit) {
   const pc = buildPeer(peerId)
   peer.value = pc
   await addLocalTracks(pc)
+  if (!isCurrentPeer(pc)) return
 
   await pc.setRemoteDescription(offer)
+  if (!isCurrentPeer(pc)) return
   await flushCandidates()
+  if (!isCurrentPeer(pc)) return
   const answer = await pc.createAnswer()
+  if (!isCurrentPeer(pc)) return
   await pc.setLocalDescription(answer)
+  if (!isCurrentPeer(pc)) return
   send({ type: 'answer', peerId, data: pc.localDescription })
+}
+
+function isCurrentPeer(pc: RTCPeerConnection) {
+  return peer.value === pc && pc.signalingState !== 'closed'
 }
 
 function buildPeer(peerId: string) {
@@ -817,9 +830,11 @@ function buildPeer(peerId: string) {
     iceTransportPolicy: import.meta.env.VITE_FORCE_TURN === 'true' ? 'relay' : 'all'
   })
   pc.onicecandidate = (event) => {
+    if (!isCurrentPeer(pc)) return
     if (event.candidate) send({ type: 'candidate', peerId, data: event.candidate })
   }
   pc.onconnectionstatechange = () => {
+    if (!isCurrentPeer(pc)) return
     if (pc.connectionState === 'connected') {
       clearPeerDisconnectTimer()
       return
@@ -833,6 +848,7 @@ function buildPeer(peerId: string) {
     }
   }
   pc.oniceconnectionstatechange = () => {
+    if (!isCurrentPeer(pc)) return
     if (['connected', 'completed'].includes(pc.iceConnectionState)) {
       clearPeerDisconnectTimer()
       return
@@ -846,10 +862,14 @@ function buildPeer(peerId: string) {
     }
   }
   pc.ontrack = (event) => {
+    if (!isCurrentPeer(pc)) return
     const [stream] = event.streams
     if (remoteVideo.value) remoteVideo.value.srcObject = stream
-    event.track.onended = () => resetCall('对方已离开，请重新匹配')
+    event.track.onended = () => {
+      if (isCurrentPeer(pc)) resetCall('对方已离开，请重新匹配')
+    }
     event.track.onmute = () => {
+      if (!isCurrentPeer(pc)) return
       if (pc.connectionState !== 'connected') resetCall('对方媒体已中断，请重新匹配')
     }
   }
