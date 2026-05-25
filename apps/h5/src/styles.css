@@ -111,7 +111,6 @@ button {
   position: absolute;
   right: 16px;
   z-index: 3;
-  width: min(360px, calc(100vw - 32px));
   padding: 14px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
@@ -122,14 +121,20 @@ button {
 
 .profile-panel {
   top: 16px;
+  width: min(360px, calc(100vw - 32px));
   display: grid;
   gap: 10px;
 }
 
 .peer-card {
-  top: 16px;
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
   display: grid;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
 }
 
 .profile-head {
@@ -144,15 +149,19 @@ button {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .profile-head strong {
+  white-space: nowrap;
   color: #ffffff;
   font-size: 15px;
 }
 
 .profile-head span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
   color: rgba(255, 255, 255, 0.68);
   font-size: 12px;
 }
@@ -209,8 +218,7 @@ button {
   font-weight: 800;
 }
 
-.tags,
-.safety-actions {
+.tags {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -225,12 +233,36 @@ button {
   font-weight: 800;
 }
 
-.safety-actions button {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.1);
+.peer-main {
+  display: grid;
+  min-width: 0;
+  gap: 9px;
 }
 
-.safety-actions button:last-child {
+.safety-box {
+  display: grid;
+  gap: 7px;
+  min-width: 210px;
+}
+
+.safety-box > span {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.safety-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.safety-actions button.report {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.safety-actions button.block {
   background: rgba(217, 74, 74, 0.84);
   color: #fff5f5;
 }
@@ -296,11 +328,27 @@ button {
 @media (max-width: 720px) {
   .profile-panel,
   .peer-card {
-    top: auto;
     right: 12px;
-    bottom: 92px;
     left: 12px;
     width: auto;
+  }
+
+  .profile-panel {
+    top: auto;
+    bottom: 92px;
+  }
+
+  .peer-card {
+    bottom: 92px;
+    grid-template-columns: 1fr;
+  }
+
+  .safety-box {
+    min-width: 0;
+  }
+
+  .safety-box > span {
+    text-align: left;
   }
 
   .toolbar {

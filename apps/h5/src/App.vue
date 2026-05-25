@@ -50,20 +50,29 @@
         </button>
       </section>
 
-      <section v-if="peerProfile" class="peer-card" aria-label="peer profile">
-        <div class="profile-head">
-          <div class="avatar">{{ peerInitial }}</div>
-          <div>
-            <strong>{{ peerProfile.displayName || '星球旅人' }}</strong>
-            <span>{{ peerProfile.bio || '刚刚来到这个星球' }}</span>
+      <section v-if="status === 'matched'" class="peer-card" aria-label="peer profile">
+        <div class="peer-main">
+          <div class="profile-head">
+            <div class="avatar">{{ peerInitial }}</div>
+            <div>
+              <strong>{{ peerDisplayName }}</strong>
+              <span>{{ peerBio }}</span>
+            </div>
+          </div>
+          <div class="tags">
+            <span v-for="item in peerInterests" :key="item">{{ item }}</span>
           </div>
         </div>
-        <div class="tags">
-          <span v-for="item in peerProfile.interests || []" :key="item">{{ item }}</span>
-        </div>
-        <div class="safety-actions">
-          <button :disabled="safetyLoading" @click="reportPeer">举报</button>
-          <button :disabled="safetyLoading" @click="blockPeer">拉黑</button>
+        <div class="safety-box">
+          <span>安全操作</span>
+          <div class="safety-actions">
+            <button class="report" :disabled="safetyLoading || reportedPeerId === activePeerId" @click="reportPeer">
+              {{ reportedPeerId === activePeerId ? '已举报' : '举报对方' }}
+            </button>
+            <button class="block" :disabled="safetyLoading" @click="blockPeer">
+              拉黑并结束
+            </button>
+          </div>
         </div>
       </section>
     </section>
@@ -98,6 +107,7 @@ const leaving = ref(false)
 const switchingCamera = ref(false)
 const savingProfile = ref(false)
 const safetyLoading = ref(false)
+const reportedPeerId = ref<string | null>(null)
 const pushStatus = ref<'idle' | 'enabled' | 'blocked' | 'unsupported' | 'unconfigured'>('idle')
 const errorText = ref('')
 const profile = ref<UserProfile | null>(null)
@@ -159,6 +169,9 @@ const localPreviewStyle = computed(() => {
 const nextCameraText = computed(() => cameraFacing.value === 'user' ? '后镜头' : '前镜头')
 const profileInitial = computed(() => (profileForm.value.displayName || '星').trim().slice(0, 1).toUpperCase())
 const peerInitial = computed(() => (peerProfile.value?.displayName || '星').trim().slice(0, 1).toUpperCase())
+const peerDisplayName = computed(() => peerProfile.value?.displayName || '对方资料载入中')
+const peerBio = computed(() => peerProfile.value?.bio || '对方暂时没有填写简介')
+const peerInterests = computed(() => peerProfile.value?.interests?.length ? peerProfile.value.interests : ['随机视讯'])
 
 initAnalytics()
 
@@ -723,6 +736,7 @@ async function reportPeer() {
   errorText.value = ''
   try {
     await reportUser(token.value, activePeerId.value, 'user reported during match')
+    reportedPeerId.value = activePeerId.value
     errorText.value = '已收到举报'
   } catch (error) {
     errorText.value = toUserMessage(error)
@@ -733,6 +747,8 @@ async function reportPeer() {
 
 async function blockPeer() {
   if (!activePeerId.value || safetyLoading.value) return
+  const confirmed = window.confirm('确定要拉黑并结束当前视讯吗？之后不会再匹配到这个用户。')
+  if (!confirmed) return
   safetyLoading.value = true
   errorText.value = ''
   try {
