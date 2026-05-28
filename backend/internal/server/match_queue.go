@@ -10,20 +10,31 @@ import (
 	"random-match/backend/internal/model"
 )
 
-// Atomic join: enqueue each user at most once, then pair the first two users.
+// Atomic join: enqueue each user at most once. Premium users wait in a separate
+// queue, and every pairing consumes premium waiters before regular waiters.
 var matchJoinScript = redis.NewScript(`
-if redis.call('SISMEMBER', KEYS[2], ARGV[1]) == 1 then
-  return {0}
+if redis.call('SISMEMBER', KEYS[3], ARGV[1]) == 1 then
+  return {2}
 end
-redis.call('SADD', KEYS[2], ARGV[1])
-redis.call('RPUSH', KEYS[1], ARGV[1])
-local len = redis.call('LLEN', KEYS[1])
+redis.call('SADD', KEYS[3], ARGV[1])
+if ARGV[2] == 'premium' then
+  redis.call('RPUSH', KEYS[1], ARGV[1])
+else
+  redis.call('RPUSH', KEYS[2], ARGV[1])
+end
+local len = redis.call('LLEN', KEYS[1]) + redis.call('LLEN', KEYS[2])
 if len < 2 then
   return {0}
 end
 local u1 = redis.call('LPOP', KEYS[1])
+if not u1 then
+  u1 = redis.call('LPOP', KEYS[2])
+end
 local u2 = redis.call('LPOP', KEYS[1])
-redis.call('SREM', KEYS[2], u1, u2)
+if not u2 then
+  u2 = redis.call('LPOP', KEYS[2])
+end
+redis.call('SREM', KEYS[3], u1, u2)
 if u1 == ARGV[1] then
   return {1, u2}
 end
@@ -35,9 +46,15 @@ type matchJoinResult struct {
 	partner model.MatchTicket
 }
 
-func enqueueAndMatch(ctx context.Context, client *redis.Client, queueKey string, ticket model.MatchTicket) (matchJoinResult, error) {
+func enqueueAndMatch(ctx context.Context, client *redis.Client, queueKey string, ticket model.MatchTicket, priority bool) (matchJoinResult, error) {
+	priorityKey := queueKey + ":premium"
+	regularKey := queueKey + ":regular"
 	membersKey := queueKey + ":members"
-	raw, err := matchJoinScript.Run(ctx, client, []string{queueKey, membersKey}, ticket.UserID).Result()
+	tier := "regular"
+	if priority {
+		tier = "premium"
+	}
+	raw, err := matchJoinScript.Run(ctx, client, []string{priorityKey, regularKey, membersKey}, ticket.UserID, tier).Result()
 	if err != nil {
 		return matchJoinResult{}, err
 	}
@@ -51,7 +68,7 @@ func enqueueAndMatch(ctx context.Context, client *redis.Client, queueKey string,
 	if !ok {
 		return matchJoinResult{}, errors.New("unexpected match script status")
 	}
-	if status == 0 {
+	if status == 0 || status == 2 {
 		return matchJoinResult{waiting: true}, nil
 	}
 	if len(items) != 2 {
@@ -71,6 +88,13 @@ func enqueueAndMatch(ctx context.Context, client *redis.Client, queueKey string,
 	return matchJoinResult{partner: partner}, nil
 }
 
+func queueForPriority(queueKey string, priority bool) string {
+	if priority {
+		return queueKey + ":premium"
+	}
+	return queueKey + ":regular"
+}
+
 func removeUserFromMatchQueues(ctx context.Context, client *redis.Client, userID string) error {
 	var cursor uint64
 	for {
@@ -80,6 +104,15 @@ func removeUserFromMatchQueues(ctx context.Context, client *redis.Client, userID
 		}
 		for _, key := range keys {
 			if strings.HasSuffix(key, ":members") {
+				continue
+			}
+			if strings.HasSuffix(key, ":regular") || strings.HasSuffix(key, ":premium") {
+				if err := client.LRem(ctx, key, 0, userID).Err(); err != nil {
+					return err
+				}
+				if err := client.SRem(ctx, strings.TrimSuffix(strings.TrimSuffix(key, ":regular"), ":premium")+":members", userID).Err(); err != nil {
+					return err
+				}
 				continue
 			}
 			if err := client.LRem(ctx, key, 0, userID).Err(); err != nil {

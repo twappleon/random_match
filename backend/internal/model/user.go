@@ -3,24 +3,29 @@ package model
 import "time"
 
 type User struct {
-	ID           string    `bson:"_id" json:"id"`
-	DisplayName  string    `bson:"displayName" json:"displayName"`
-	AvatarURL    string    `bson:"avatarUrl" json:"avatarUrl"`
-	Bio          string    `bson:"bio,omitempty" json:"bio,omitempty"`
-	Interests    []string  `bson:"interests,omitempty" json:"interests,omitempty"`
-	AgeConfirmed bool      `bson:"ageConfirmed" json:"ageConfirmed"`
-	FirebaseUID  string    `bson:"firebaseUid,omitempty" json:"firebaseUid,omitempty"`
-	CreatedAt    time.Time `bson:"createdAt" json:"createdAt"`
-	UpdatedAt    time.Time `bson:"updatedAt" json:"updatedAt"`
+	ID                  string     `bson:"_id" json:"id"`
+	DisplayName         string     `bson:"displayName" json:"displayName"`
+	AvatarURL           string     `bson:"avatarUrl" json:"avatarUrl"`
+	Bio                 string     `bson:"bio,omitempty" json:"bio,omitempty"`
+	Interests           []string   `bson:"interests,omitempty" json:"interests,omitempty"`
+	AgeConfirmed        bool       `bson:"ageConfirmed" json:"ageConfirmed"`
+	MembershipPlan      string     `bson:"membershipPlan,omitempty" json:"membershipPlan,omitempty"`
+	MembershipExpiresAt *time.Time `bson:"membershipExpiresAt,omitempty" json:"membershipExpiresAt,omitempty"`
+	FirebaseUID         string     `bson:"firebaseUid,omitempty" json:"firebaseUid,omitempty"`
+	CreatedAt           time.Time  `bson:"createdAt" json:"createdAt"`
+	UpdatedAt           time.Time  `bson:"updatedAt" json:"updatedAt"`
 }
 
 type UserProfile struct {
-	ID           string   `bson:"_id" json:"id"`
-	DisplayName  string   `bson:"displayName" json:"displayName"`
-	AvatarURL    string   `bson:"avatarUrl" json:"avatarUrl"`
-	Bio          string   `bson:"bio,omitempty" json:"bio,omitempty"`
-	Interests    []string `bson:"interests,omitempty" json:"interests,omitempty"`
-	AgeConfirmed bool     `bson:"ageConfirmed" json:"ageConfirmed"`
+	ID                  string     `bson:"_id" json:"id"`
+	DisplayName         string     `bson:"displayName" json:"displayName"`
+	AvatarURL           string     `bson:"avatarUrl" json:"avatarUrl"`
+	Bio                 string     `bson:"bio,omitempty" json:"bio,omitempty"`
+	Interests           []string   `bson:"interests,omitempty" json:"interests,omitempty"`
+	AgeConfirmed        bool       `bson:"ageConfirmed" json:"ageConfirmed"`
+	MembershipPlan      string     `bson:"membershipPlan,omitempty" json:"membershipPlan,omitempty"`
+	MembershipExpiresAt *time.Time `bson:"membershipExpiresAt,omitempty" json:"membershipExpiresAt,omitempty"`
+	IsMember            bool       `bson:"-" json:"isMember"`
 }
 
 type UserBlock struct {
@@ -50,4 +55,15 @@ type MatchTicket struct {
 	Mode      MatchMode `json:"mode"`
 	Region    string    `json:"region"`
 	CreatedAt time.Time `json:"createdAt"`
+}
+
+type PaymentOrder struct {
+	ID        string     `bson:"_id" json:"id"`
+	UserID    string     `bson:"userId" json:"userId"`
+	Plan      string     `bson:"plan" json:"plan"`
+	Amount    int        `bson:"amount" json:"amount"`
+	Currency  string     `bson:"currency" json:"currency"`
+	Status    string     `bson:"status" json:"status"`
+	CreatedAt time.Time  `bson:"createdAt" json:"createdAt"`
+	PaidAt    *time.Time `bson:"paidAt,omitempty" json:"paidAt,omitempty"`
 }

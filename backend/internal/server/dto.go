@@ -1,6 +1,10 @@
 package server
 
-import "random-match/backend/internal/model"
+import (
+	"time"
+
+	"random-match/backend/internal/model"
+)
 
 type errorResponse struct {
 	Error string `json:"error" example:"unauthorized"`
@@ -95,4 +99,22 @@ type pushSubscriptionResponse struct {
 
 type pushTestResponse struct {
 	Status string `json:"status" example:"sent"`
+}
+
+type commerceStatusResponse struct {
+	IsMember            bool       `json:"isMember" example:"true"`
+	MembershipPlan      string     `json:"membershipPlan" example:"premium_monthly"`
+	MembershipExpiresAt *time.Time `json:"membershipExpiresAt,omitempty"`
+	DailyLimit          int        `json:"dailyLimit" example:"10"`
+	DailyUsed           int        `json:"dailyUsed" example:"3"`
+	DailyRemaining      int        `json:"dailyRemaining" example:"7"`
+	PriorityQueue       bool       `json:"priorityQueue" example:"true"`
+}
+
+type createPaymentRequest struct {
+	Plan string `json:"plan" example:"premium_monthly"`
+}
+
+type paymentOrderResponse struct {
+	Order model.PaymentOrder `json:"order"`
 }

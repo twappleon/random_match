@@ -50,6 +50,16 @@
         </button>
       </section>
 
+      <section v-if="status === 'idle'" class="monetization-panel" aria-label="membership">
+        <div>
+          <strong>{{ membershipTitle }}</strong>
+          <span>{{ membershipText }}</span>
+        </div>
+        <button :disabled="paymentLoading || commerceStatus?.isMember" @click="buyMembership">
+          {{ paymentButtonText }}
+        </button>
+      </section>
+
       <section v-if="status === 'matched'" class="peer-card" aria-label="peer profile">
         <div class="peer-main">
           <div class="profile-head">
@@ -95,7 +105,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { anonymousAuth, blockUser, fetchProfile, fetchStats, iceServers, joinMatch, leaveMatch, reportUser, savePushSubscription, sendPushTest, updateProfile, uploadMatchSnapshot, vapidPublicKey, verifySession, type MatchMode, type UserProfile, wsURL } from './api'
+import { anonymousAuth, blockUser, confirmPaymentOrder, createPaymentOrder, fetchCommerceStatus, fetchProfile, fetchStats, iceServers, joinMatch, leaveMatch, reportUser, savePushSubscription, sendPushTest, updateProfile, uploadMatchSnapshot, vapidPublicKey, verifySession, type CommerceStatus, type MatchMode, type UserProfile, wsURL } from './api'
 import { initAnalytics } from './firebase'
 
 type Status = 'idle' | 'waiting' | 'matched'
@@ -107,11 +117,13 @@ const leaving = ref(false)
 const switchingCamera = ref(false)
 const savingProfile = ref(false)
 const safetyLoading = ref(false)
+const paymentLoading = ref(false)
 const reportedPeerId = ref<string | null>(null)
 const pushStatus = ref<'idle' | 'enabled' | 'blocked' | 'unsupported' | 'unconfigured'>('idle')
 const errorText = ref('')
 const profile = ref<UserProfile | null>(null)
 const peerProfile = ref<UserProfile | null>(null)
+const commerceStatus = ref<CommerceStatus | null>(null)
 const profileForm = ref({
   displayName: '星球旅人',
   bio: '',
@@ -172,6 +184,17 @@ const peerInitial = computed(() => (peerProfile.value?.displayName || '星').tri
 const peerDisplayName = computed(() => peerProfile.value?.displayName || '对方资料载入中')
 const peerBio = computed(() => peerProfile.value?.bio || '对方暂时没有填写简介')
 const peerInterests = computed(() => peerProfile.value?.interests?.length ? peerProfile.value.interests : ['随机视讯'])
+const membershipTitle = computed(() => commerceStatus.value?.isMember ? '会员已开启' : '免费匹配额度')
+const membershipText = computed(() => {
+  const status = commerceStatus.value
+  if (!status) return '正在读取今日额度'
+  if (status.isMember) return `无限匹配 · 优先排队${status.membershipExpiresAt ? ` · 到期 ${formatDate(status.membershipExpiresAt)}` : ''}`
+  return `今日剩余 ${status.dailyRemaining}/${status.dailyLimit} 次 · 会员无限匹配并优先排队`
+})
+const paymentButtonText = computed(() => {
+  if (commerceStatus.value?.isMember) return '已是会员'
+  return paymentLoading.value ? '开通中' : '$6.99/月 开通'
+})
 
 initAnalytics()
 
@@ -241,9 +264,15 @@ async function loadProfile() {
   try {
     await ensureAuth()
     setProfile(await fetchProfile(token.value))
+    await loadCommerceStatus()
   } catch {
     // Profile is refreshed again before matching.
   }
+}
+
+async function loadCommerceStatus() {
+  await ensureAuth()
+  commerceStatus.value = await fetchCommerceStatus(token.value)
 }
 
 function parsedInterests() {
@@ -356,6 +385,7 @@ async function startMatch() {
     await openMedia()
     await openSocketWithAuth()
     const result = await joinMatch(token.value, mode.value)
+    await loadCommerceStatus()
     status.value = result.status === 'matched' ? 'matched' : 'waiting'
     if (result.status === 'matched' && result.roomId) {
       peerProfile.value = result.peerProfile || null
@@ -367,8 +397,26 @@ async function startMatch() {
     void refreshStats()
   } catch (error) {
     errorText.value = toUserMessage(error)
+    void loadCommerceStatus().catch(() => undefined)
   } finally {
     loading.value = false
+  }
+}
+
+async function buyMembership() {
+  if (paymentLoading.value || commerceStatus.value?.isMember) return
+  paymentLoading.value = true
+  errorText.value = ''
+  try {
+    await ensureAuth()
+    const order = await createPaymentOrder(token.value)
+    await confirmPaymentOrder(token.value, order.id)
+    await loadCommerceStatus()
+    errorText.value = '会员已开通，可无限匹配并优先排队'
+  } catch (error) {
+    errorText.value = toUserMessage(error)
+  } finally {
+    paymentLoading.value = false
   }
 }
 
@@ -921,6 +969,13 @@ function toUserMessage(error: unknown) {
   }
   if (error instanceof Error) return error.message
   return '操作失败，请稍后重试'
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date(value))
 }
 
 onBeforeUnmount(() => {

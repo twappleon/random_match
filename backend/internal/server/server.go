@@ -63,6 +63,9 @@ func (s *Server) Routes() http.Handler {
 	auth.POST("/match/snapshot", s.saveMatchSnapshot)
 	auth.POST("/users/:id/block", s.blockUser)
 	auth.POST("/users/:id/report", s.reportUser)
+	auth.GET("/commerce/status", s.commerceStatus)
+	auth.POST("/commerce/orders", s.createPaymentOrder)
+	auth.POST("/commerce/orders/:id/confirm", s.confirmPaymentOrder)
 	auth.POST("/push/subscription", s.savePushSubscriptionHandler)
 	auth.POST("/push/test", s.testPushHandler)
 
@@ -286,8 +289,31 @@ func (s *Server) joinMatch(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
+	user, err := s.userByID(ctx, userID)
+	if err != nil {
+		log.Printf("match join user failed user_id=%s err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
+		return
+	}
+	isMember := isActiveMember(user, time.Now().UTC())
+	usage, allowed, err := s.reserveMatchAttempt(ctx, userID, isMember)
+	if err != nil {
+		log.Printf("match quota failed user_id=%s err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "match quota failed"})
+		return
+	}
+	if !allowed {
+		c.JSON(http.StatusPaymentRequired, gin.H{
+			"error":          "daily free match limit reached",
+			"dailyLimit":     usage.DailyLimit,
+			"dailyUsed":      usage.DailyUsed,
+			"dailyRemaining": usage.DailyRemaining,
+		})
+		return
+	}
+
 	self := model.MatchTicket{UserID: userID, Mode: req.Mode, Region: req.Region, CreatedAt: time.Now().UTC()}
-	result, err := enqueueAndMatch(ctx, s.cache.Client, queueKey, self)
+	result, err := enqueueAndMatch(ctx, s.cache.Client, queueKey, self, isMember)
 	if err != nil {
 		log.Printf("match join failed user_id=%s mode=%s region=%s err=%v", userID, req.Mode, req.Region, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
@@ -303,7 +329,7 @@ func (s *Server) joinMatch(c *gin.Context) {
 	if !s.hub.IsOnline(partner.UserID) {
 		log.Printf("match stale_partner user_id=%s peer_id=%s mode=%s region=%s", userID, partner.UserID, req.Mode, req.Region)
 		self = model.MatchTicket{UserID: userID, Mode: req.Mode, Region: req.Region, CreatedAt: time.Now().UTC()}
-		if err := s.cache.Client.RPush(ctx, queueKey, self.UserID).Err(); err != nil {
+		if err := s.cache.Client.RPush(ctx, queueForPriority(queueKey, isMember), self.UserID).Err(); err != nil {
 			log.Printf("match requeue failed user_id=%s mode=%s region=%s err=%v", userID, req.Mode, req.Region, err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
 			return
@@ -324,7 +350,11 @@ func (s *Server) joinMatch(c *gin.Context) {
 	}
 	if blocked {
 		log.Printf("match blocked_pair user_id=%s peer_id=%s mode=%s region=%s", userID, partner.UserID, req.Mode, req.Region)
-		if err := s.cache.Client.RPush(ctx, queueKey, partner.UserID).Err(); err != nil {
+		partnerPriority := false
+		if partnerUser, err := s.userByID(ctx, partner.UserID); err == nil {
+			partnerPriority = isActiveMember(partnerUser, time.Now().UTC())
+		}
+		if err := s.cache.Client.RPush(ctx, queueForPriority(queueKey, partnerPriority), partner.UserID).Err(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
 			return
 		}
@@ -696,12 +726,15 @@ func (s *Server) userProfile(ctx context.Context, userID string) (model.UserProf
 		return model.UserProfile{}, err
 	}
 	return model.UserProfile{
-		ID:           user.ID,
-		DisplayName:  user.DisplayName,
-		AvatarURL:    user.AvatarURL,
-		Bio:          user.Bio,
-		Interests:    user.Interests,
-		AgeConfirmed: user.AgeConfirmed,
+		ID:                  user.ID,
+		DisplayName:         user.DisplayName,
+		AvatarURL:           user.AvatarURL,
+		Bio:                 user.Bio,
+		Interests:           user.Interests,
+		AgeConfirmed:        user.AgeConfirmed,
+		MembershipPlan:      user.MembershipPlan,
+		MembershipExpiresAt: user.MembershipExpiresAt,
+		IsMember:            isActiveMember(user, time.Now().UTC()),
 	}, nil
 }
 

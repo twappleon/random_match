@@ -107,9 +107,9 @@ button {
 }
 
 .profile-panel,
-.peer-card {
+.peer-card,
+.monetization-panel {
   position: absolute;
-  right: 16px;
   z-index: 3;
   padding: 14px;
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -120,10 +120,47 @@ button {
 }
 
 .profile-panel {
+  right: 16px;
   top: 16px;
   width: min(360px, calc(100vw - 32px));
   display: grid;
   gap: 10px;
+}
+
+.monetization-panel {
+  left: 16px;
+  bottom: 16px;
+  width: min(380px, calc(100vw - 32px));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.monetization-panel strong,
+.monetization-panel span {
+  display: block;
+}
+
+.monetization-panel strong {
+  font-size: 15px;
+}
+
+.monetization-panel span {
+  margin-top: 4px;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.monetization-panel button {
+  min-height: 38px;
+  padding: 0 13px;
+  border-radius: 8px;
+  background: #f1c45b;
+  color: #181102;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .peer-card {
@@ -327,7 +364,8 @@ button {
 
 @media (max-width: 720px) {
   .profile-panel,
-  .peer-card {
+  .peer-card,
+  .monetization-panel {
     right: 12px;
     left: 12px;
     width: auto;
@@ -335,7 +373,12 @@ button {
 
   .profile-panel {
     top: auto;
+    bottom: 166px;
+  }
+
+  .monetization-panel {
     bottom: 92px;
+    grid-template-columns: 1fr;
   }
 
   .peer-card {

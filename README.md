@@ -72,8 +72,21 @@ flutter run
 - `POST /api/v1/match/snapshot`: 保存配对成功后的截图
 - `POST /api/v1/users/{id}/report`: 举报用户
 - `POST /api/v1/users/{id}/block`: 拉黑用户
+- `GET /api/v1/commerce/status`: 读取会员状态和每日免费匹配额度
+- `POST /api/v1/commerce/orders`: 创建会员订单
+- `POST /api/v1/commerce/orders/{id}/confirm`: 确认会员订单并开通会员
 - `POST /api/v1/push/subscription`: 保存浏览器推送订阅
 - `GET /api/v1/ws?token=...`: WebRTC signaling WebSocket
+
+## 商业化能力
+
+当前版本内置基础商业化闭环：
+
+- 免费用户每天可发起 10 次随机匹配，额度按 UTC 日期重置。
+- 会员用户不限制每日匹配次数。
+- 会员用户进入优先队列，撮合时优先消化会员等待队列，再消化普通队列。
+- H5 空闲页展示今日剩余额度和会员开通入口。
+- 订单接口目前是模拟支付确认：`/commerce/orders/{id}/confirm` 会直接把订单标记为 paid，并给用户开通一个月会员。生产收款前应替换为 Stripe、Apple/Google IAP 或本地支付网关的服务端回调确认。
 
 ## 匿名社交资料
 
