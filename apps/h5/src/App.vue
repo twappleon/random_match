@@ -1,6 +1,6 @@
 <template>
   <main class="screen">
-    <section ref="stage" class="call-stage">
+    <section v-show="activePage === 'video'" ref="stage" class="call-stage page">
       <div class="remote-video">
         <video ref="remoteVideo" autoplay playsinline></video>
         <div v-if="status !== 'matched'" class="state">{{ stateText }}</div>
@@ -20,45 +20,6 @@
         <span>等待 {{ stats.waiting }}</span>
         <span>聊天 {{ stats.chatting }}</span>
       </aside>
-
-      <section v-if="status === 'idle'" class="profile-panel" aria-label="profile setup">
-        <div class="profile-head">
-          <div class="avatar">{{ profileInitial }}</div>
-          <div>
-            <strong>匿名身份</strong>
-            <span>用兴趣和状态开始匹配</span>
-          </div>
-        </div>
-        <label>
-          昵称
-          <input v-model.trim="profileForm.displayName" maxlength="24" placeholder="星球旅人" />
-        </label>
-        <label>
-          简介
-          <textarea v-model.trim="profileForm.bio" maxlength="120" rows="2" placeholder="一句话介绍现在的你"></textarea>
-        </label>
-        <label>
-          兴趣标签
-          <input v-model="interestsText" placeholder="电影, 音乐, 旅行" />
-        </label>
-        <label class="age-check">
-          <input v-model="profileForm.ageConfirmed" type="checkbox" />
-          <span>我已满 18 岁并同意文明视讯</span>
-        </label>
-        <button class="save-profile" :disabled="savingProfile" @click="saveProfile">
-          {{ savingProfile ? '保存中' : '保存资料' }}
-        </button>
-      </section>
-
-      <section v-if="status === 'idle'" class="monetization-panel" aria-label="membership">
-        <div>
-          <strong>{{ membershipTitle }}</strong>
-          <span>{{ membershipText }}</span>
-        </div>
-        <button :disabled="paymentLoading || commerceStatus?.isMember" @click="buyMembership">
-          {{ paymentButtonText }}
-        </button>
-      </section>
 
       <section v-if="status === 'matched'" class="peer-card" aria-label="peer profile">
         <div class="peer-main">
@@ -87,7 +48,55 @@
       </section>
     </section>
 
-    <nav class="toolbar" aria-label="match controls">
+    <section v-show="activePage === 'profile'" class="page page-shell">
+      <div class="content-card profile-page" aria-label="profile setup">
+        <div class="profile-head">
+          <div class="avatar">{{ profileInitial }}</div>
+          <div>
+            <strong>匿名身份</strong>
+            <span>用兴趣和状态开始匹配</span>
+          </div>
+        </div>
+        <label>
+          昵称
+          <input v-model.trim="profileForm.displayName" maxlength="24" placeholder="星球旅人" />
+        </label>
+        <label>
+          简介
+          <textarea v-model.trim="profileForm.bio" maxlength="120" rows="3" placeholder="一句话介绍现在的你"></textarea>
+        </label>
+        <label>
+          兴趣标签
+          <input v-model="interestsText" placeholder="电影, 音乐, 旅行" />
+        </label>
+        <label class="age-check">
+          <input v-model="profileForm.ageConfirmed" type="checkbox" />
+          <span>我已满 18 岁并同意文明视讯</span>
+        </label>
+        <button class="save-profile" :disabled="savingProfile" @click="saveProfile">
+          {{ savingProfile ? '保存中' : '保存资料' }}
+        </button>
+      </div>
+    </section>
+
+    <section v-show="activePage === 'membership'" class="page page-shell">
+      <div class="content-card membership-page" aria-label="membership">
+        <div class="membership-summary">
+          <strong>{{ membershipTitle }}</strong>
+          <span>{{ membershipText }}</span>
+        </div>
+        <div class="benefits">
+          <span>无限随机匹配</span>
+          <span>进入优先队列</span>
+          <span>免费额度用完后继续使用</span>
+        </div>
+        <button :disabled="paymentLoading || commerceStatus?.isMember" @click="buyMembership">
+          {{ paymentButtonText }}
+        </button>
+      </div>
+    </section>
+
+    <nav v-if="activePage === 'video'" class="toolbar" aria-label="match controls">
       <button class="camera" :disabled="loading || switchingCamera || !localStream" @click="switchCamera">
         {{ switchingCamera ? '切换中' : nextCameraText }}
       </button>
@@ -99,7 +108,13 @@
       </button>
     </nav>
 
-    <p v-if="errorText" class="error" role="alert">{{ errorText }}</p>
+    <nav class="app-nav" aria-label="main navigation">
+      <button :class="{ active: activePage === 'video' }" @click="switchPage('video')">视讯</button>
+      <button :class="{ active: activePage === 'profile' }" @click="switchPage('profile')">资料</button>
+      <button :class="{ active: activePage === 'membership' }" @click="switchPage('membership')">会员</button>
+    </nav>
+
+    <p v-if="errorText" class="error" :class="{ 'error-with-toolbar': activePage === 'video' }" role="alert">{{ errorText }}</p>
   </main>
 </template>
 
@@ -109,8 +124,10 @@ import { anonymousAuth, blockUser, confirmPaymentOrder, createPaymentOrder, fetc
 import { initAnalytics } from './firebase'
 
 type Status = 'idle' | 'waiting' | 'matched'
+type Page = 'video' | 'profile' | 'membership'
 
 const mode = ref<MatchMode>('video')
+const activePage = ref<Page>('video')
 const status = ref<Status>('idle')
 const loading = ref(false)
 const leaving = ref(false)
@@ -233,6 +250,17 @@ function stopSocketHeartbeat() {
   if (wsHeartbeatTimer.value !== null) {
     window.clearInterval(wsHeartbeatTimer.value)
     wsHeartbeatTimer.value = null
+  }
+}
+
+async function switchPage(page: Page) {
+  activePage.value = page
+  if (page === 'video') {
+    await nextTick()
+    ensurePreviewPosition()
+  }
+  if (page === 'membership') {
+    void loadCommerceStatus().catch(() => undefined)
   }
 }
 
@@ -375,6 +403,7 @@ async function startMatch() {
   loading.value = true
   errorText.value = ''
   try {
+    await switchPage('video')
     resetCall()
     if (!profileForm.value.ageConfirmed) {
       throw new Error('请先确认已满 18 岁并保存资料')
