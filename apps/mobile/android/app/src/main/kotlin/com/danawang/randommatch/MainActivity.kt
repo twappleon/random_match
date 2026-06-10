@@ -1,4 +1,4 @@
-package com.example.random_match_mobile
+package com.danawang.randommatch
 
 import io.flutter.embedding.android.FlutterActivity
 
