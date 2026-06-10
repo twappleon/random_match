@@ -62,6 +62,7 @@ class _MatchPageState extends State<MatchPage> {
   String _mode = 'video';
   String _status = 'idle';
   bool _loading = false;
+  bool _chatOpen = false;
   final List<_ChatMessage> _messages = [];
 
   @override
@@ -93,6 +94,7 @@ class _MatchPageState extends State<MatchPage> {
         _messages.clear();
         _activePeerId = null;
         _activeRoomId = null;
+        _chatOpen = false;
       });
       final response = await http.post(
         Uri.parse('$apiBase/api/v1/match/join'),
@@ -176,6 +178,7 @@ class _MatchPageState extends State<MatchPage> {
             _activePeerId = null;
             _activeRoomId = null;
             _messages.clear();
+            _chatOpen = false;
           });
           break;
       }
@@ -282,6 +285,22 @@ class _MatchPageState extends State<MatchPage> {
             DateTime.now(),
       ));
     });
+    if (!_chatOpen && mounted) {
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content:
+              Text(text.length > 42 ? '${text.substring(0, 42)}...' : text),
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: '查看',
+            onPressed: () => setState(() => _chatOpen = true),
+          ),
+          duration: const Duration(milliseconds: 3500),
+        ),
+      );
+    }
     _scrollChatToBottom();
   }
 
@@ -330,18 +349,35 @@ class _MatchPageState extends State<MatchPage> {
               ),
             ),
           ),
-          if (_status == 'matched')
+          if (_chatOpen)
             Positioned(
               left: 12,
               right: 12,
-              bottom: 280,
-              height: 220,
-              child: _ChatPanel(
-                messages: _messages,
-                controller: _chatInput,
-                scrollController: _chatScroll,
-                enabled: _activePeerId != null,
-                onSend: _sendChatMessage,
+              bottom: 92,
+              height: 300,
+              child: SafeArea(
+                top: false,
+                child: _ChatPanel(
+                  messages: _messages,
+                  controller: _chatInput,
+                  scrollController: _chatScroll,
+                  enabled: _status == 'matched' && _activePeerId != null,
+                  onSend: _sendChatMessage,
+                  onClose: () => setState(() => _chatOpen = false),
+                ),
+              ),
+            ),
+          if (!_chatOpen)
+            Positioned(
+              left: 12,
+              bottom: 92,
+              child: SafeArea(
+                top: false,
+                child: FilledButton.tonalIcon(
+                  onPressed: () => setState(() => _chatOpen = true),
+                  icon: const Icon(Icons.chat_bubble_outline),
+                  label: const Text('文字'),
+                ),
               ),
             ),
           Positioned(
@@ -400,6 +436,7 @@ class _ChatPanel extends StatelessWidget {
     required this.scrollController,
     required this.enabled,
     required this.onSend,
+    required this.onClose,
   });
 
   final List<_ChatMessage> messages;
@@ -407,6 +444,7 @@ class _ChatPanel extends StatelessWidget {
   final ScrollController scrollController;
   final bool enabled;
   final VoidCallback onSend;
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
@@ -418,12 +456,30 @@ class _ChatPanel extends StatelessWidget {
       ),
       child: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 8, 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    enabled ? '文字聊天' : '匹配成功后可文字聊天',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                IconButton(
+                  onPressed: onClose,
+                  icon: const Icon(Icons.close),
+                  tooltip: '关闭',
+                ),
+              ],
+            ),
+          ),
           Expanded(
             child: messages.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
-                      '开始文字聊天',
-                      style: TextStyle(
+                      enabled ? '开始文字聊天' : '匹配成功后可文字聊天',
+                      style: const TextStyle(
                           color: Colors.white70, fontWeight: FontWeight.w700),
                     ),
                   )
@@ -478,11 +534,11 @@ class _ChatPanel extends StatelessWidget {
                     maxLength: 500,
                     minLines: 1,
                     maxLines: 3,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       counterText: '',
-                      hintText: '输入消息...',
+                      hintText: enabled ? '输入消息...' : '等待匹配后开始聊天',
                       isDense: true,
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
                     ),
                     onSubmitted: (_) => onSend(),
                   ),
