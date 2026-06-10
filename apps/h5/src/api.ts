@@ -173,6 +173,28 @@ export async function blockUser(token: string, userId: string): Promise<void> {
   if (!res.ok) throw new Error('拉黑失败')
 }
 
+export interface BlockedUser {
+  user: UserProfile
+  createdAt: string
+}
+
+export async function fetchBlockedUsers(token: string): Promise<BlockedUser[]> {
+  const res = await fetch(`${apiBase()}/api/v1/users/blocks`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error('读取拉黑名单失败')
+  const payload = await res.json()
+  return Array.isArray(payload.users) ? payload.users : []
+}
+
+export async function unblockUser(token: string, userId: string): Promise<void> {
+  const res = await fetch(`${apiBase()}/api/v1/users/${encodeURIComponent(userId)}/block`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error('解除拉黑失败')
+}
+
 export async function reportUser(token: string, userId: string, reason = 'inappropriate behavior'): Promise<void> {
   const res = await fetch(`${apiBase()}/api/v1/users/${encodeURIComponent(userId)}/report`, {
     method: 'POST',

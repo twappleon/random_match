@@ -337,6 +337,76 @@ button {
   box-shadow: 0 14px 30px rgba(47, 210, 118, 0.16);
 }
 
+.blocked-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.section-head div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.section-head strong {
+  color: #ffffff;
+  font-size: 15px;
+}
+
+.section-head span,
+.empty-list {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.section-head button,
+.blocked-user button {
+  min-height: 34px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.86);
+  font-weight: 800;
+}
+
+.blocked-list {
+  display: grid;
+  gap: 8px;
+}
+
+.blocked-user {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.blocked-user button {
+  padding: 0 12px;
+  background: rgba(232, 247, 239, 0.13);
+  color: #dff8e8;
+}
+
+.blocked-user button:disabled,
+.section-head button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
 .tags {
   display: flex;
   flex-wrap: wrap;
@@ -691,6 +761,14 @@ button:focus-visible {
 
   .safety-box > span {
     text-align: left;
+  }
+
+  .blocked-user {
+    grid-template-columns: 1fr;
+  }
+
+  .blocked-user button {
+    min-height: 38px;
   }
 
   .toolbar {

@@ -105,6 +105,32 @@
         <button class="save-profile" :disabled="savingProfile" @click="saveProfile">
           {{ savingProfile ? '保存中' : '保存资料' }}
         </button>
+        <section class="blocked-section" aria-label="blocked users">
+          <div class="section-head">
+            <div>
+              <strong>拉黑名单</strong>
+              <span>解除后未来可能再次匹配到对方</span>
+            </div>
+            <button type="button" :disabled="loadingBlockedUsers" @click="loadBlockedUsers">
+              {{ loadingBlockedUsers ? '读取中' : '刷新' }}
+            </button>
+          </div>
+          <p v-if="!loadingBlockedUsers && blockedUsers.length === 0" class="empty-list">目前没有拉黑对象</p>
+          <div v-else class="blocked-list">
+            <div v-for="item in blockedUsers" :key="item.user.id" class="blocked-user">
+              <div class="profile-head">
+                <div class="avatar">{{ item.user.displayName.trim().slice(0, 1).toUpperCase() || '星' }}</div>
+                <div>
+                  <strong>{{ item.user.displayName || '匿名用户' }}</strong>
+                  <span>{{ item.user.bio || `拉黑于 ${formatDate(item.createdAt)}` }}</span>
+                </div>
+              </div>
+              <button type="button" :disabled="unblockingUserId === item.user.id" @click="unblockBlockedUser(item.user.id)">
+                {{ unblockingUserId === item.user.id ? '解除中' : '解除' }}
+              </button>
+            </div>
+          </div>
+        </section>
       </div>
     </section>
 
@@ -157,7 +183,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { anonymousAuth, blockUser, confirmPaymentOrder, createPaymentOrder, fetchCommerceStatus, fetchProfile, fetchStats, iceServers, joinMatch, leaveMatch, reportUser, savePushSubscription, sendPushTest, updateProfile, uploadMatchSnapshot, vapidPublicKey, verifySession, type CommerceStatus, type MatchMode, type UserProfile, wsURL } from './api'
+import { anonymousAuth, blockUser, confirmPaymentOrder, createPaymentOrder, fetchBlockedUsers, fetchCommerceStatus, fetchProfile, fetchStats, iceServers, joinMatch, leaveMatch, reportUser, savePushSubscription, sendPushTest, unblockUser, updateProfile, uploadMatchSnapshot, vapidPublicKey, verifySession, type BlockedUser, type CommerceStatus, type MatchMode, type UserProfile, wsURL } from './api'
 import { initAnalytics } from './firebase'
 
 type Status = 'idle' | 'waiting' | 'matched'
@@ -178,11 +204,14 @@ const switchingCamera = ref(false)
 const savingProfile = ref(false)
 const safetyLoading = ref(false)
 const paymentLoading = ref(false)
+const loadingBlockedUsers = ref(false)
 const reportedPeerId = ref<string | null>(null)
+const unblockingUserId = ref<string | null>(null)
 const pushStatus = ref<'idle' | 'enabled' | 'blocked' | 'unsupported' | 'unconfigured'>('idle')
 const errorText = ref('')
 const profile = ref<UserProfile | null>(null)
 const peerProfile = ref<UserProfile | null>(null)
+const blockedUsers = ref<BlockedUser[]>([])
 const commerceStatus = ref<CommerceStatus | null>(null)
 const profileForm = ref({
   displayName: '星球旅人',
@@ -318,6 +347,9 @@ async function switchPage(page: Page) {
   if (page === 'membership') {
     void loadCommerceStatus().catch(() => undefined)
   }
+  if (page === 'profile') {
+    void loadBlockedUsers().catch(() => undefined)
+  }
 }
 
 function toggleChat() {
@@ -364,6 +396,7 @@ async function loadProfile() {
     await ensureAuth()
     setProfile(await fetchProfile(token.value))
     await loadCommerceStatus()
+    await loadBlockedUsers()
   } catch {
     // Profile is refreshed again before matching.
   }
@@ -372,6 +405,32 @@ async function loadProfile() {
 async function loadCommerceStatus() {
   await ensureAuth()
   commerceStatus.value = await fetchCommerceStatus(token.value)
+}
+
+async function loadBlockedUsers() {
+  loadingBlockedUsers.value = true
+  try {
+    await ensureAuth()
+    blockedUsers.value = await fetchBlockedUsers(token.value)
+  } finally {
+    loadingBlockedUsers.value = false
+  }
+}
+
+async function unblockBlockedUser(userId: string) {
+  if (unblockingUserId.value) return
+  unblockingUserId.value = userId
+  errorText.value = ''
+  try {
+    await ensureAuth()
+    await unblockUser(token.value, userId)
+    blockedUsers.value = blockedUsers.value.filter((item) => item.user.id !== userId)
+    errorText.value = '已解除拉黑'
+  } catch (error) {
+    errorText.value = toUserMessage(error)
+  } finally {
+    unblockingUserId.value = null
+  }
 }
 
 function parsedInterests() {
