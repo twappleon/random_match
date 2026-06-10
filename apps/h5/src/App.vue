@@ -46,6 +46,30 @@
           </div>
         </div>
       </section>
+
+      <section v-if="status === 'matched'" class="chat-panel" aria-label="text chat">
+        <div ref="chatList" class="chat-list">
+          <p v-if="chatMessages.length === 0" class="chat-empty">开始文字聊天</p>
+          <div
+            v-for="message in chatMessages"
+            :key="message.id"
+            class="chat-message"
+            :class="{ mine: message.sender === 'self' }"
+          >
+            <span>{{ message.text }}</span>
+          </div>
+        </div>
+        <form class="chat-form" @submit.prevent="sendChatMessage">
+          <input
+            v-model="chatDraft"
+            maxlength="500"
+            autocomplete="off"
+            placeholder="输入消息..."
+            :disabled="!activePeerId"
+          />
+          <button :disabled="!canSendChat">发送</button>
+        </form>
+      </section>
     </section>
 
     <section v-show="activePage === 'profile'" class="page page-shell">
@@ -125,6 +149,12 @@ import { initAnalytics } from './firebase'
 
 type Status = 'idle' | 'waiting' | 'matched'
 type Page = 'video' | 'profile' | 'membership'
+type ChatMessage = {
+  id: string
+  sender: 'self' | 'peer'
+  text: string
+  createdAt: string
+}
 
 const mode = ref<MatchMode>('video')
 const activePage = ref<Page>('video')
@@ -153,12 +183,16 @@ const token = ref(localStorage.getItem('token') ?? '')
 const ws = ref<WebSocket | null>(null)
 const wsHeartbeatTimer = ref<number | null>(null)
 const closingSocket = ref(false)
+const activeRoomId = ref<string | null>(null)
+const chatDraft = ref('')
+const chatMessages = ref<ChatMessage[]>([])
 const localStream = ref<MediaStream | null>(null)
 const peer = ref<RTCPeerConnection | null>(null)
 const peerDisconnectTimer = ref<number | null>(null)
 const activePeerId = ref<string | null>(null)
 const pendingCandidates = ref<RTCIceCandidateInit[]>([])
 const stage = ref<HTMLElement | null>(null)
+const chatList = ref<HTMLElement | null>(null)
 const localPreview = ref<HTMLElement | null>(null)
 const remoteVideo = ref<HTMLVideoElement | null>(null)
 const localVideo = ref<HTMLVideoElement | null>(null)
@@ -212,6 +246,7 @@ const paymentButtonText = computed(() => {
   if (commerceStatus.value?.isMember) return '已是会员'
   return paymentLoading.value ? '开通中' : '$6.99/月 开通'
 })
+const canSendChat = computed(() => status.value === 'matched' && Boolean(activePeerId.value) && chatDraft.value.trim().length > 0)
 
 initAnalytics()
 
@@ -417,6 +452,8 @@ async function startMatch() {
     await loadCommerceStatus()
     status.value = result.status === 'matched' ? 'matched' : 'waiting'
     if (result.status === 'matched' && result.roomId) {
+      activeRoomId.value = result.roomId
+      activePeerId.value = result.peerId || null
       peerProfile.value = result.peerProfile || null
       void captureAndUploadSnapshot(result.roomId, result.peerId)
     }
@@ -621,6 +658,8 @@ function openSocket() {
         if (msg.type === 'pong') return
         if (msg.type === 'matched') {
           status.value = 'matched'
+          activeRoomId.value = msg.roomId || null
+          activePeerId.value = msg.peerId || null
           peerProfile.value = msg.peerProfile || null
           if (msg.roomId) void captureAndUploadSnapshot(msg.roomId, msg.peerId)
           if (msg.initiator && msg.peerId) await createPeer(msg.peerId)
@@ -637,6 +676,10 @@ function openSocket() {
         }
         if (msg.type === 'candidate') {
           await addRemoteCandidate(msg.data)
+          return
+        }
+        if (msg.type === 'chat-message') {
+          receiveChatMessage(msg.data)
           return
         }
         if (msg.type === 'peer-left') {
@@ -776,14 +819,19 @@ function stopPreviewDrag(event: PointerEvent) {
   window.removeEventListener('pointercancel', stopPreviewDrag)
 }
 
-function teardownPeer() {
+function teardownPeer(clearSession = true) {
   clearPeerDisconnectTimer()
   const currentPeer = peer.value
   peer.value = null
   currentPeer?.close()
   activePeerId.value = null
   pendingCandidates.value = []
-  peerProfile.value = null
+  if (clearSession) {
+    activeRoomId.value = null
+    peerProfile.value = null
+    chatDraft.value = ''
+    chatMessages.value = []
+  }
   if (remoteVideo.value) remoteVideo.value.srcObject = null
 }
 
@@ -860,7 +908,7 @@ async function flushCandidates() {
 async function createPeer(peerId: string) {
   if (activePeerId.value === peerId && peer.value?.localDescription?.type === 'offer') return
 
-  teardownPeer()
+  teardownPeer(false)
   activePeerId.value = peerId
 
   const pc = buildPeer(peerId)
@@ -878,7 +926,7 @@ async function createPeer(peerId: string) {
 async function acceptOffer(peerId: string, offer: RTCSessionDescriptionInit) {
   if (activePeerId.value === peerId && peer.value?.localDescription?.type === 'answer') return
 
-  teardownPeer()
+  teardownPeer(false)
   activePeerId.value = peerId
 
   const pc = buildPeer(peerId)
@@ -984,6 +1032,57 @@ function send(message: unknown) {
     return
   }
   ws.value.send(JSON.stringify(message))
+}
+
+function sendChatMessage() {
+  if (!canSendChat.value || !activePeerId.value) return
+  const text = chatDraft.value.trim()
+  const message: ChatMessage = {
+    id: newMessageId(),
+    sender: 'self',
+    text,
+    createdAt: new Date().toISOString()
+  }
+  chatDraft.value = ''
+  chatMessages.value.push(message)
+  scrollChatToBottom()
+  send({
+    type: 'chat-message',
+    peerId: activePeerId.value,
+    roomId: activeRoomId.value || undefined,
+    data: {
+      id: message.id,
+      text: message.text,
+      createdAt: message.createdAt
+    }
+  })
+}
+
+function receiveChatMessage(data: unknown) {
+  if (!data || typeof data !== 'object') return
+  const payload = data as { id?: unknown; text?: unknown; createdAt?: unknown }
+  if (typeof payload.text !== 'string') return
+  const text = payload.text.trim()
+  if (!text) return
+  chatMessages.value.push({
+    id: typeof payload.id === 'string' ? payload.id : newMessageId(),
+    sender: 'peer',
+    text: text.slice(0, 500),
+    createdAt: typeof payload.createdAt === 'string' ? payload.createdAt : new Date().toISOString()
+  })
+  scrollChatToBottom()
+}
+
+function scrollChatToBottom() {
+  void nextTick(() => {
+    const list = chatList.value
+    if (list) list.scrollTop = list.scrollHeight
+  })
+}
+
+function newMessageId() {
+  if (crypto.randomUUID) return crypto.randomUUID()
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
 function toUserMessage(error: unknown) {
