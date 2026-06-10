@@ -21,7 +21,10 @@
         <span>聊天 {{ stats.chatting }}</span>
       </aside>
 
-      <section v-if="status === 'matched' && !chatOpen" class="peer-card" aria-label="peer profile">
+      <section v-if="status === 'matched' && !chatOpen && !peerCardHidden" class="peer-card" aria-label="peer profile">
+        <button class="peer-card-close" type="button" aria-label="hide peer profile" @click="peerCardHidden = true">
+          ×
+        </button>
         <div class="peer-main">
           <div class="profile-head">
             <div class="avatar">{{ peerInitial }}</div>
@@ -232,6 +235,7 @@ const localStream = ref<MediaStream | null>(null)
 const peer = ref<RTCPeerConnection | null>(null)
 const peerDisconnectTimer = ref<number | null>(null)
 const activePeerId = ref<string | null>(null)
+const peerCardHidden = ref(false)
 const pendingCandidates = ref<RTCIceCandidateInit[]>([])
 const stage = ref<HTMLElement | null>(null)
 const chatList = ref<HTMLElement | null>(null)
@@ -546,6 +550,7 @@ async function startMatch() {
     if (result.status === 'matched' && result.roomId) {
       activeRoomId.value = result.roomId
       activePeerId.value = result.peerId || null
+      peerCardHidden.value = false
       peerProfile.value = result.peerProfile || null
       void captureAndUploadSnapshot(result.roomId, result.peerId)
     }
@@ -752,6 +757,7 @@ function openSocket() {
           status.value = 'matched'
           activeRoomId.value = msg.roomId || null
           activePeerId.value = msg.peerId || null
+          peerCardHidden.value = false
           peerProfile.value = msg.peerProfile || null
           if (msg.roomId) void captureAndUploadSnapshot(msg.roomId, msg.peerId)
           if (msg.initiator && msg.peerId) await createPeer(msg.peerId)
@@ -917,6 +923,7 @@ function teardownPeer(clearSession = true) {
   peer.value = null
   currentPeer?.close()
   activePeerId.value = null
+  peerCardHidden.value = false
   pendingCandidates.value = []
   if (clearSession) {
     activeRoomId.value = null
