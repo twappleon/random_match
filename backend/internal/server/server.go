@@ -61,7 +61,9 @@ func (s *Server) Routes() http.Handler {
 	auth.POST("/match/join", s.joinMatch)
 	auth.POST("/match/leave", s.leaveMatch)
 	auth.POST("/match/snapshot", s.saveMatchSnapshot)
+	auth.GET("/users/blocks", s.listBlockedUsers)
 	auth.POST("/users/:id/block", s.blockUser)
+	auth.DELETE("/users/:id/block", s.unblockUser)
 	auth.POST("/users/:id/report", s.reportUser)
 	auth.GET("/commerce/status", s.commerceStatus)
 	auth.POST("/commerce/orders", s.createPaymentOrder)
@@ -460,6 +462,85 @@ func (s *Server) blockUser(c *gin.Context) {
 		s.hub.Notify(peerID, SignalMessage{Type: "peer-left", PeerID: userID})
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "blocked"})
+}
+
+// listBlockedUsers godoc
+//
+//	@Summary		List blocked users
+//	@Description	Returns users blocked by the current user.
+//	@Tags			safety
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	blockedUsersResponse
+//	@Failure		401	{object}	errorResponse
+//	@Failure		500	{object}	errorResponse
+//	@Router			/api/v1/users/blocks [get]
+func (s *Server) listBlockedUsers(c *gin.Context) {
+	userID := userIDFromContext(c)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	cursor, err := s.db.DB.Collection("user_blocks").Find(ctx, bson.M{"userId": userID}, options.Find().SetSort(bson.M{"createdAt": -1}))
+	if err != nil {
+		log.Printf("user blocks list failed user_id=%s err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "list blocked users failed"})
+		return
+	}
+	defer cursor.Close(ctx)
+
+	items := make([]blockedUserItem, 0)
+	for cursor.Next(ctx) {
+		var block model.UserBlock
+		if err := cursor.Decode(&block); err != nil {
+			log.Printf("user block decode failed user_id=%s err=%v", userID, err)
+			continue
+		}
+		profile, err := s.userProfile(ctx, block.BlockedID)
+		if err != nil {
+			log.Printf("blocked user profile missing user_id=%s blocked_id=%s err=%v", userID, block.BlockedID, err)
+			continue
+		}
+		items = append(items, blockedUserItem{
+			User:      profile,
+			CreatedAt: block.CreatedAt,
+		})
+	}
+	if err := cursor.Err(); err != nil {
+		log.Printf("user blocks cursor failed user_id=%s err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "list blocked users failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"users": items})
+}
+
+// unblockUser godoc
+//
+//	@Summary		Unblock a user
+//	@Description	Removes a block created by the current user.
+//	@Tags			safety
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path	string	true	"Target user id"
+//	@Success		200	{object}	userActionResponse
+//	@Failure		401	{object}	errorResponse
+//	@Failure		500	{object}	errorResponse
+//	@Router			/api/v1/users/{id}/block [delete]
+func (s *Server) unblockUser(c *gin.Context) {
+	userID := userIDFromContext(c)
+	targetID := strings.TrimSpace(c.Param("id"))
+	if targetID == "" || targetID == userID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid target"})
+		return
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	if _, err := s.db.DB.Collection("user_blocks").DeleteOne(ctx, bson.M{"_id": userID + ":" + targetID}); err != nil {
+		log.Printf("user unblock failed user_id=%s target_id=%s err=%v", userID, targetID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unblock failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "unblocked"})
 }
 
 // reportUser godoc

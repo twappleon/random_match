@@ -83,6 +83,15 @@ type userActionResponse struct {
 	Status string `json:"status" example:"ok"`
 }
 
+type blockedUserItem struct {
+	User      model.UserProfile `json:"user"`
+	CreatedAt time.Time         `json:"createdAt"`
+}
+
+type blockedUsersResponse struct {
+	Users []blockedUserItem `json:"users"`
+}
+
 type pushSubscriptionRequest struct {
 	Endpoint string               `json:"endpoint" example:"https://fcm.googleapis.com/fcm/send/..."`
 	Keys     pushSubscriptionKeys `json:"keys"`
