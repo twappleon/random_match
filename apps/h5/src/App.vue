@@ -1168,7 +1168,7 @@ function receiveChatMessage(data: unknown) {
   chatMessages.value.push({
     id: typeof payload.id === 'string' ? payload.id : newMessageId(),
     sender: 'peer',
-    text: text.slice(0, 500),
+    text: truncateText(text, 500),
     createdAt: typeof payload.createdAt === 'string' ? payload.createdAt : new Date().toISOString()
   })
   if (!chatOpen.value) showChatToast(text)
@@ -1176,7 +1176,8 @@ function receiveChatMessage(data: unknown) {
 }
 
 function showChatToast(text: string) {
-  chatToastText.value = text.length > 42 ? `${text.slice(0, 42)}...` : text
+  chatToastText.value = truncateText(text, 42)
+  if (chatToastText.value !== text) chatToastText.value += '...'
   if (chatToastTimer.value !== null) window.clearTimeout(chatToastTimer.value)
   chatToastTimer.value = window.setTimeout(clearChatToast, 3500)
 }
@@ -1199,6 +1200,16 @@ function scrollChatToBottom() {
 function newMessageId() {
   if (crypto.randomUUID) return crypto.randomUUID()
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+function truncateText(value: string, maxLength: number) {
+  const segmenter = typeof Intl !== 'undefined' && 'Segmenter' in Intl
+    ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+    : null
+  const chars = segmenter
+    ? Array.from(segmenter.segment(value), (item) => item.segment)
+    : Array.from(value)
+  return chars.length > maxLength ? chars.slice(0, maxLength).join('') : value
 }
 
 function toUserMessage(error: unknown) {

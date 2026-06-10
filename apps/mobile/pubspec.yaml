@@ -9,10 +9,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  characters: ^1.4.0
   firebase_analytics: ^11.3.6
   firebase_core: ^3.9.0
   dio: ^5.7.0
-  flutter_webrtc: ^0.12.5
+  flutter_webrtc: ^1.4.1
   get: ^4.6.6
   web_socket_channel: ^3.0.1
 

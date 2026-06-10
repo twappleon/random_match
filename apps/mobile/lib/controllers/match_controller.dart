@@ -392,7 +392,7 @@ class MatchController extends GetxController {
     final message = ChatMessage(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       sender: ChatSender.self,
-      text: text.length > 500 ? text.substring(0, 500) : text,
+      text: truncateText(text, 500),
       createdAt: DateTime.now(),
     );
     messages.add(message);
@@ -420,14 +420,14 @@ class MatchController extends GetxController {
       id: data['id'] as String? ??
           DateTime.now().microsecondsSinceEpoch.toString(),
       sender: ChatSender.peer,
-      text: text.length > 500 ? text.substring(0, 500) : text,
+      text: truncateText(text, 500),
       createdAt: DateTime.tryParse(data['createdAt'] as String? ?? '') ??
           DateTime.now(),
     ));
     if (!chatOpen.value) {
       Get.snackbar(
         '新文字讯息',
-        text.length > 42 ? '${text.substring(0, 42)}...' : text,
+        toastPreview(text),
         snackPosition: SnackPosition.BOTTOM,
         mainButton: TextButton(
           onPressed: () {
@@ -450,6 +450,16 @@ class MatchController extends GetxController {
         curve: Curves.easeOut,
       );
     });
+  }
+
+  String truncateText(String value, int maxLength) {
+    final chars = value.characters;
+    return chars.length > maxLength ? chars.take(maxLength).toString() : value;
+  }
+
+  String toastPreview(String value) {
+    final truncated = truncateText(value, 42);
+    return truncated == value ? value : '$truncated...';
   }
 
   Future<void> loadCommerceStatus() async {
