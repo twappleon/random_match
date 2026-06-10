@@ -34,16 +34,13 @@
             <span v-for="item in peerInterests" :key="item">{{ item }}</span>
           </div>
         </div>
-        <div class="safety-box">
-          <span>安全操作</span>
-          <div class="safety-actions">
-            <button class="report" :disabled="safetyLoading || reportedPeerId === activePeerId" @click="reportPeer">
-              {{ reportedPeerId === activePeerId ? '已举报' : '举报对方' }}
-            </button>
-            <button class="block" :disabled="safetyLoading" @click="blockPeer">
-              拉黑并结束
-            </button>
-          </div>
+        <div class="safety-actions">
+          <button class="report" :disabled="safetyLoading || reportedPeerId === activePeerId" @click="reportPeer">
+            {{ reportedPeerId === activePeerId ? '已举报' : '举报' }}
+          </button>
+          <button class="block" :disabled="safetyLoading" @click="blockPeer">
+            拉黑
+          </button>
         </div>
       </section>
 
