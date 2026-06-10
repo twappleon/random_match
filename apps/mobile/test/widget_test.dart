@@ -7,7 +7,8 @@ void main() {
     await tester.pumpWidget(const RandomMatchApp());
 
     expect(find.text('视讯'), findsOneWidget);
-    expect(find.text('语音'), findsOneWidget);
+    expect(find.text('资料'), findsOneWidget);
+    expect(find.text('会员'), findsOneWidget);
     expect(find.text('随机匹配'), findsOneWidget);
   });
 }
