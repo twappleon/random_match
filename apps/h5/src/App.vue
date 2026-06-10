@@ -21,7 +21,7 @@
         <span>聊天 {{ stats.chatting }}</span>
       </aside>
 
-      <section v-if="status === 'matched'" class="peer-card" aria-label="peer profile">
+      <section v-if="status === 'matched' && !chatOpen" class="peer-card" aria-label="peer profile">
         <div class="peer-main">
           <div class="profile-head">
             <div class="avatar">{{ peerInitial }}</div>
@@ -47,9 +47,14 @@
         </div>
       </section>
 
-      <section v-if="status === 'matched'" class="chat-panel" aria-label="text chat">
+      <section v-if="chatOpen" class="chat-sheet" aria-label="text chat">
+        <div class="chat-header">
+          <strong>文字聊天</strong>
+          <span>{{ chatHeaderText }}</span>
+          <button type="button" aria-label="close text chat" @click="chatOpen = false">收起</button>
+        </div>
         <div ref="chatList" class="chat-list">
-          <p v-if="chatMessages.length === 0" class="chat-empty">开始文字聊天</p>
+          <p v-if="chatMessages.length === 0" class="chat-empty">{{ chatEmptyText }}</p>
           <div
             v-for="message in chatMessages"
             :key="message.id"
@@ -64,8 +69,8 @@
             v-model="chatDraft"
             maxlength="500"
             autocomplete="off"
-            placeholder="输入消息..."
-            :disabled="!activePeerId"
+            :placeholder="chatInputPlaceholder"
+            :disabled="!canUseChat"
           />
           <button :disabled="!canSendChat">发送</button>
         </form>
@@ -121,6 +126,9 @@
     </section>
 
     <nav v-if="activePage === 'video'" class="toolbar" aria-label="match controls">
+      <button class="chat-toggle" @click="toggleChat">
+        {{ chatOpen ? '收起文字' : '文字' }}
+      </button>
       <button class="camera" :disabled="loading || switchingCamera || !localStream" @click="switchCamera">
         {{ switchingCamera ? '切换中' : nextCameraText }}
       </button>
@@ -137,6 +145,11 @@
       <button :class="{ active: activePage === 'profile' }" @click="switchPage('profile')">资料</button>
       <button :class="{ active: activePage === 'membership' }" @click="switchPage('membership')">会员</button>
     </nav>
+
+    <button v-if="chatToastText" class="chat-toast" type="button" @click="openChatFromToast">
+      <strong>新文字讯息</strong>
+      <span>{{ chatToastText }}</span>
+    </button>
 
     <p v-if="errorText" class="error" :class="{ 'error-with-toolbar': activePage === 'video' }" role="alert">{{ errorText }}</p>
   </main>
@@ -184,8 +197,11 @@ const ws = ref<WebSocket | null>(null)
 const wsHeartbeatTimer = ref<number | null>(null)
 const closingSocket = ref(false)
 const activeRoomId = ref<string | null>(null)
+const chatOpen = ref(false)
 const chatDraft = ref('')
 const chatMessages = ref<ChatMessage[]>([])
+const chatToastText = ref('')
+const chatToastTimer = ref<number | null>(null)
 const localStream = ref<MediaStream | null>(null)
 const peer = ref<RTCPeerConnection | null>(null)
 const peerDisconnectTimer = ref<number | null>(null)
@@ -247,6 +263,10 @@ const paymentButtonText = computed(() => {
   return paymentLoading.value ? '开通中' : '$6.99/月 开通'
 })
 const canSendChat = computed(() => status.value === 'matched' && Boolean(activePeerId.value) && chatDraft.value.trim().length > 0)
+const canUseChat = computed(() => status.value === 'matched' && Boolean(activePeerId.value))
+const chatEmptyText = computed(() => canUseChat.value ? '开始文字聊天' : '匹配成功后可文字聊天')
+const chatInputPlaceholder = computed(() => canUseChat.value ? '输入消息...' : '等待匹配后开始聊天')
+const chatHeaderText = computed(() => canUseChat.value ? peerDisplayName.value : '目前尚未连接对象')
 
 initAnalytics()
 
@@ -290,6 +310,7 @@ function stopSocketHeartbeat() {
 
 async function switchPage(page: Page) {
   activePage.value = page
+  if (page !== 'video') chatOpen.value = false
   if (page === 'video') {
     await nextTick()
     ensurePreviewPosition()
@@ -297,6 +318,21 @@ async function switchPage(page: Page) {
   if (page === 'membership') {
     void loadCommerceStatus().catch(() => undefined)
   }
+}
+
+function toggleChat() {
+  chatOpen.value = !chatOpen.value
+  if (chatOpen.value) {
+    clearChatToast()
+    scrollChatToBottom()
+  }
+}
+
+function openChatFromToast() {
+  activePage.value = 'video'
+  chatOpen.value = true
+  clearChatToast()
+  scrollChatToBottom()
 }
 
 function clearToken() {
@@ -829,6 +865,8 @@ function teardownPeer(clearSession = true) {
   if (clearSession) {
     activeRoomId.value = null
     peerProfile.value = null
+    chatOpen.value = false
+    clearChatToast()
     chatDraft.value = ''
     chatMessages.value = []
   }
@@ -1070,7 +1108,22 @@ function receiveChatMessage(data: unknown) {
     text: text.slice(0, 500),
     createdAt: typeof payload.createdAt === 'string' ? payload.createdAt : new Date().toISOString()
   })
+  if (!chatOpen.value) showChatToast(text)
   scrollChatToBottom()
+}
+
+function showChatToast(text: string) {
+  chatToastText.value = text.length > 42 ? `${text.slice(0, 42)}...` : text
+  if (chatToastTimer.value !== null) window.clearTimeout(chatToastTimer.value)
+  chatToastTimer.value = window.setTimeout(clearChatToast, 3500)
+}
+
+function clearChatToast() {
+  chatToastText.value = ''
+  if (chatToastTimer.value !== null) {
+    window.clearTimeout(chatToastTimer.value)
+    chatToastTimer.value = null
+  }
 }
 
 function scrollChatToBottom() {
@@ -1109,6 +1162,7 @@ function formatDate(value: string) {
 onBeforeUnmount(() => {
   stopStatsPolling()
   stopSocketHeartbeat()
+  clearChatToast()
   window.removeEventListener('resize', ensurePreviewPosition)
   window.removeEventListener('pointermove', dragPreview)
   window.removeEventListener('pointerup', stopPreviewDrag)
