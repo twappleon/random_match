@@ -153,21 +153,103 @@ docker-compose -f deploy/docker-compose.prod.yml --env-file .env logs backend | 
 
 Flutter App 已接入 Firebase Cloud Messaging token 注册流程。App 启动并完成匿名登录后，会请求通知权限、取得 FCM token，并写入后端 `push_device_tokens` 集合；后端在用户离线时会通过 Firebase Admin SDK 发送 App Push。
 
-还需要在部署环境补齐这些配置：
+### 1. Firebase Console 配置
 
-- Android Firebase app package name: `com.danawang.randommatch`
-- iOS Bundle ID: `com.danawang.randommatch`
-- Android 配置文件：`apps/mobile/android/app/google-services.json`
-- iOS 配置文件：`apps/mobile/ios/Runner/GoogleService-Info.plist`
-- Firebase Console > Cloud Messaging 里为 iOS app 上传 APNs Auth Key
-- 后端运行环境提供 Google service account，例如设置 `GOOGLE_APPLICATION_CREDENTIALS=/app/firebase-service-account.json`
-- 后端 `.env` 设置：
+1. 在 Firebase Console 创建或打开项目。
+2. 新增 Android app，Package name 填：
+
+```text
+com.danawang.randommatch
+```
+
+3. 下载 `google-services.json`，放到：
+
+```text
+apps/mobile/android/app/google-services.json
+```
+
+4. 新增 iOS app，Bundle ID 填：
+
+```text
+com.danawang.randommatch
+```
+
+5. 下载 `GoogleService-Info.plist`，放到：
+
+```text
+apps/mobile/ios/Runner/GoogleService-Info.plist
+```
+
+6. 在 Firebase Console > Project settings > Cloud Messaging，为 iOS app 上传 APNs Auth Key，并填写 Apple Team ID 和 Key ID。
+
+### 2. App 本地打包配置
+
+`google-services.json` 和 `GoogleService-Info.plist` 是每个 Firebase 项目的配置文件，不提交到 Git。拉代码后需要把文件放到上述路径，再执行：
+
+```bash
+cd apps/mobile
+flutter pub get
+flutter build apk --release
+PATH="$HOME/.gem/ruby/2.6.0/bin:$PATH" flutter build ios --release --no-codesign
+```
+
+如果要产出 signed IPA，还需要在 Xcode 的 `Runner` target 里选择 Apple Developer Team，并确保 `Push Notifications` 能力可用。
+
+### 3. 后端服务账号配置
+
+后端通过 Firebase Admin SDK 发送 FCM。不要把 service account JSON 提交到 Git，生产服务器上放到安全路径，例如：
+
+```text
+/opt/random_match/secrets/firebase-service-account.json
+```
+
+服务器 `.env` 需要设置：
 
 ```env
 FIREBASE_PROJECT_ID=你的 Firebase project id
+GOOGLE_APPLICATION_CREDENTIALS=/app/firebase-service-account.json
+```
+
+如果使用 `deploy/docker-compose.prod.yml`，可以用一个本地 override 文件挂载 service account：
+
+```yaml
+# deploy/docker-compose.firebase.yml
+services:
+  backend:
+    environment:
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      GOOGLE_APPLICATION_CREDENTIALS: /app/firebase-service-account.json
+    volumes:
+      - /opt/random_match/secrets/firebase-service-account.json:/app/firebase-service-account.json:ro
+```
+
+启动或重建后端时同时带上 override：
+
+```bash
+docker-compose \
+  -f deploy/docker-compose.prod.yml \
+  -f deploy/docker-compose.firebase.yml \
+  --env-file .env \
+  up -d --build --force-recreate backend
+```
+
+### 4. 文件和环境变量清单
+
+- Android Firebase app package name: `com.danawang.randommatch`
+- iOS Bundle ID: `com.danawang.randommatch`
+- Android 客户端文件：`apps/mobile/android/app/google-services.json`
+- iOS 客户端文件：`apps/mobile/ios/Runner/GoogleService-Info.plist`
+- 后端 service account 文件：通过服务器文件或 secret 挂载到容器内
+- 后端环境变量：
+
+```env
+FIREBASE_PROJECT_ID=你的 Firebase project id
+GOOGLE_APPLICATION_CREDENTIALS=/app/firebase-service-account.json
 ```
 
 注意：`google-services.json`、`GoogleService-Info.plist` 和 service account JSON 不提交到 Git。生产部署时通过服务器文件或 secret 挂载。
+
+### 5. 验证和排查
 
 排查 App token 是否写入：
 
@@ -180,6 +262,16 @@ docker exec random-match-mongo mongosh random_match --quiet --eval 'db.push_devi
 ```bash
 curl -X POST https://你的后端域名/api/v1/push/test \
   -H "Authorization: Bearer 用户JWT"
+```
+
+查看后端 FCM 日志：
+
+```bash
+docker-compose \
+  -f deploy/docker-compose.prod.yml \
+  -f deploy/docker-compose.firebase.yml \
+  --env-file .env \
+  logs backend | grep "push native"
 ```
 
 ## 线上截图文件
