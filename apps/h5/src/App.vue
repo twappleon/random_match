@@ -3,7 +3,18 @@
     <section v-show="activePage === 'video'" ref="stage" class="call-stage page">
       <div class="remote-video">
         <video ref="remoteVideo" autoplay playsinline></video>
-        <div v-if="status !== 'matched'" class="state">{{ stateText }}</div>
+        <div v-if="status !== 'matched'" class="state">
+          <div class="state-card" :class="{ waiting: status === 'waiting' }">
+            <span class="state-badge">{{ stateBadgeText }}</span>
+            <strong>{{ stateTitle }}</strong>
+            <span>{{ stateSubtitle }}</span>
+            <div class="state-chips" aria-label="match hints">
+              <span>视讯优先</span>
+              <span>匿名身份</span>
+              <span>可随时退出</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div
@@ -16,9 +27,9 @@
       </div>
 
       <aside class="stats-panel" aria-label="runtime stats">
-        <span>在线 {{ stats.online }}</span>
-        <span>等待 {{ stats.waiting }}</span>
-        <span>聊天 {{ stats.chatting }}</span>
+        <span><b>{{ stats.online }}</b><small>在线</small></span>
+        <span><b>{{ stats.waiting }}</b><small>等待</small></span>
+        <span><b>{{ stats.chatting }}</b><small>聊天</small></span>
       </aside>
 
       <section v-if="status === 'matched' && !chatOpen && !peerCardHidden" class="peer-card" aria-label="peer profile">
@@ -257,11 +268,9 @@ const previewDrag = ref<{
 const capturedSnapshotRooms = new Set<string>()
 const cameraFacing = ref<'user' | 'environment'>('user')
 
-const stateText = computed(() => {
-  if (status.value === 'waiting') return '正在寻找视讯用户…\n请让另一位用户在另一浏览器窗口点击「随机匹配」'
-  if (status.value === 'matched') return '已匹配，正在连接视讯…'
-  return '点击下方按钮开始视讯匹配'
-})
+const stateBadgeText = computed(() => status.value === 'waiting' ? 'MATCHING' : 'READY')
+const stateTitle = computed(() => status.value === 'waiting' ? '正在寻找合适对象' : '准备开始视讯匹配')
+const stateSubtitle = computed(() => status.value === 'waiting' ? '保持页面开启，匹配成功后会自动进入视讯。' : '点击下方按钮，系统会为你连接在线用户。')
 
 const actionText = computed(() => {
   if (loading.value) return '匹配中'
