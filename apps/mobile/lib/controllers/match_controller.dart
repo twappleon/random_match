@@ -36,6 +36,7 @@ class MatchController extends GetxController {
   final chatOpen = false.obs;
   final peerCardHidden = false.obs;
   final ageConfirmed = false.obs;
+  final remoteVideoTick = 0.obs;
 
   final stats = const RuntimeStats(online: 0, waiting: 0, chatting: 0).obs;
   final profile = Rxn<UserProfile>();
@@ -372,6 +373,7 @@ class MatchController extends GetxController {
     pc.onTrack = (event) {
       if (event.streams.isNotEmpty) {
         remoteRenderer.srcObject = event.streams.first;
+        remoteVideoTick.value++;
       }
     };
     return pc;
@@ -426,6 +428,7 @@ class MatchController extends GetxController {
     _remoteDescriptionReady = false;
     _pendingCandidates.clear();
     remoteRenderer.srcObject = null;
+    remoteVideoTick.value++;
     if (clearSession) {
       activeRoomId = null;
       peerProfile.value = null;

@@ -20,6 +20,7 @@ class VideoPage extends GetView<MatchController> {
       final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
       final keyboardOpen = keyboardInset > 0;
       final chatBottom = keyboardOpen ? 12.0 : 100.0;
+      final remoteVideoTick = controller.remoteVideoTick.value;
 
       return LayoutBuilder(
         builder: (context, constraints) {
@@ -35,6 +36,7 @@ class VideoPage extends GetView<MatchController> {
                 child: _AuroraVideoBackground(
                   child: matched
                       ? RTCVideoView(
+                          key: ValueKey(remoteVideoTick),
                           controller.remoteRenderer,
                           objectFit:
                               RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
