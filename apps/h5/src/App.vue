@@ -158,6 +158,9 @@
       <button class="camera" :disabled="loading || switchingCamera || !localStream" @click="switchCamera">
         {{ switchingCamera ? '切换中' : nextCameraText }}
       </button>
+      <button class="block-call" :disabled="!canBlockPeer" @click="blockPeer">
+        {{ safetyLoading ? '处理中' : '拉黑' }}
+      </button>
       <button class="primary" :disabled="loading || status === 'waiting'" @click="startMatch">
         {{ actionText }}
       </button>
@@ -294,6 +297,7 @@ const paymentButtonText = computed(() => {
 })
 const canSendChat = computed(() => status.value === 'matched' && Boolean(activePeerId.value) && chatDraft.value.trim().length > 0)
 const canUseChat = computed(() => status.value === 'matched' && Boolean(activePeerId.value))
+const canBlockPeer = computed(() => status.value === 'matched' && Boolean(activePeerId.value) && !safetyLoading.value && !leaving.value)
 const chatEmptyText = computed(() => canUseChat.value ? '开始文字聊天' : '匹配成功后可文字聊天')
 const chatInputPlaceholder = computed(() => canUseChat.value ? '输入消息...' : '等待匹配后开始聊天')
 const chatHeaderText = computed(() => canUseChat.value ? peerDisplayName.value : '目前尚未连接对象')

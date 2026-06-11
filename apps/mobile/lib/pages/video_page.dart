@@ -121,6 +121,21 @@ class VideoPage extends GetView<MatchController> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
+                    child: FilledButton.tonalIcon(
+                      onPressed: controller.status.value ==
+                                  MatchStatus.matched &&
+                              controller.activePeerId != null &&
+                              !controller.safetyLoading.value &&
+                              !leaving
+                          ? controller.blockPeer
+                          : null,
+                      icon: const Icon(Icons.block, size: 18),
+                      label: Text(
+                          controller.safetyLoading.value ? '处理中' : '拉黑'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
                     flex: 2,
                     child: FilledButton(
                       onPressed: loading ||

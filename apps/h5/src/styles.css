@@ -607,7 +607,7 @@ button {
 
 .toolbar {
   display: grid;
-  grid-template-columns: 0.78fr 0.92fr 1.24fr 0.86fr;
+  grid-template-columns: 0.76fr 0.9fr 0.82fr 1.2fr 0.82fr;
   gap: 10px;
   padding: 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -644,6 +644,12 @@ button {
   border-color: rgba(229, 87, 87, 0.42);
   background: var(--red);
   color: #fff5f5;
+}
+
+.toolbar button.block-call {
+  border-color: rgba(229, 87, 87, 0.34);
+  background: rgba(229, 87, 87, 0.22);
+  color: #ffdada;
 }
 
 .toolbar button.camera {
