@@ -9,9 +9,9 @@
             <strong>{{ stateTitle }}</strong>
             <span>{{ stateSubtitle }}</span>
             <div class="state-chips" aria-label="match hints">
-              <span>视讯优先</span>
-              <span>匿名身份</span>
-              <span>可随时退出</span>
+              <span>随机视讯</span>
+              <span>快速连接</span>
+              <span>安全操作</span>
             </div>
           </div>
         </div>
@@ -268,9 +268,9 @@ const previewDrag = ref<{
 const capturedSnapshotRooms = new Set<string>()
 const cameraFacing = ref<'user' | 'environment'>('user')
 
-const stateBadgeText = computed(() => status.value === 'waiting' ? 'MATCHING' : 'READY')
-const stateTitle = computed(() => status.value === 'waiting' ? '正在寻找合适对象' : '准备开始视讯匹配')
-const stateSubtitle = computed(() => status.value === 'waiting' ? '保持页面开启，匹配成功后会自动进入视讯。' : '点击下方按钮，系统会为你连接在线用户。')
+const stateBadgeText = computed(() => status.value === 'waiting' ? 'LIVE MATCH' : 'AURORA READY')
+const stateTitle = computed(() => status.value === 'waiting' ? '正在寻找新朋友' : '今晚遇见新朋友')
+const stateSubtitle = computed(() => status.value === 'waiting' ? '保持页面开启，匹配成功后会自动进入视讯。' : '更强的氛围感，快速连接在线用户。')
 
 const actionText = computed(() => {
   if (loading.value) return '匹配中'

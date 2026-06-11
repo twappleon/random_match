@@ -15,6 +15,8 @@
   --green: #2fd276;
   --green-ink: #06150c;
   --blue: #71b7ff;
+  --violet: #7c5cff;
+  --cyan: #20c8ff;
   --amber: #f3c967;
   --red: #e55757;
   --shadow: 0 22px 60px rgba(0, 0, 0, 0.42);
@@ -40,9 +42,9 @@ button {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto auto;
   background:
-    linear-gradient(135deg, rgba(47, 210, 118, 0.14), transparent 36%),
-    linear-gradient(225deg, rgba(113, 183, 255, 0.12), transparent 42%),
-    linear-gradient(180deg, #14171c 0%, #0b0d10 58%, #111318 100%);
+    radial-gradient(circle at 18% 8%, rgba(124, 92, 255, 0.28), transparent 32%),
+    radial-gradient(circle at 88% 16%, rgba(32, 200, 255, 0.18), transparent 34%),
+    linear-gradient(180deg, #100d20 0%, #080b12 55%, #0b0d13 100%);
 }
 
 .page {
@@ -67,9 +69,10 @@ button {
   place-items: center;
   min-height: 0;
   background:
-    radial-gradient(circle at 50% 22%, rgba(47, 210, 118, 0.18), transparent 34%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent 36%),
-    linear-gradient(180deg, #171b22, #080a0d 68%, #050608);
+    radial-gradient(circle at 18% 18%, rgba(124, 92, 255, 0.36), transparent 32%),
+    radial-gradient(circle at 86% 26%, rgba(32, 200, 255, 0.27), transparent 30%),
+    radial-gradient(circle at 50% 88%, rgba(255, 95, 132, 0.17), transparent 34%),
+    linear-gradient(180deg, #111427 0%, #070914 72%, #07070b 100%);
 }
 
 .remote-video::after {
@@ -78,11 +81,8 @@ button {
   pointer-events: none;
   content: "";
   background:
-    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.42)),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.24), transparent 28%, transparent 72%, rgba(0, 0, 0, 0.22));
-  background-size: 42px 42px, 42px 42px, auto, auto;
+    linear-gradient(180deg, rgba(0, 0, 0, 0.03), rgba(0, 0, 0, 0.5)),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.18), transparent 30%, transparent 70%, rgba(0, 0, 0, 0.2));
 }
 
 .remote-video video {
@@ -105,13 +105,14 @@ button {
   justify-items: center;
   gap: 12px;
   width: min(520px, calc(100vw - 40px));
-  padding: 24px 22px;
-  border: 1px solid rgba(232, 247, 239, 0.18);
+  padding: 27px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 8px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.035)),
-    rgba(12, 15, 19, 0.72);
-  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    linear-gradient(135deg, rgba(124, 92, 255, 0.2), rgba(32, 200, 255, 0.12)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.045)),
+    rgba(20, 24, 39, 0.74);
+  box-shadow: 0 32px 96px rgba(0, 0, 0, 0.5), 0 0 70px rgba(124, 92, 255, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   text-align: center;
   backdrop-filter: blur(18px);
 }
@@ -133,19 +134,19 @@ button {
 
 .state-badge {
   padding: 6px 10px;
-  border: 1px solid rgba(47, 210, 118, 0.34);
+  border: 1px solid rgba(196, 170, 255, 0.42);
   border-radius: 999px;
-  background: rgba(47, 210, 118, 0.13);
-  color: #b9ffd5;
+  background: rgba(124, 92, 255, 0.22);
+  color: #eee4ff;
   font-size: 11px;
   font-weight: 950;
   letter-spacing: 0.12em;
 }
 
 .state-card.waiting .state-badge {
-  border-color: rgba(243, 201, 103, 0.42);
-  background: rgba(243, 201, 103, 0.14);
-  color: #ffe7a3;
+  border-color: rgba(32, 200, 255, 0.42);
+  background: rgba(32, 200, 255, 0.16);
+  color: #c9f3ff;
 }
 
 .state-chips {
@@ -159,7 +160,7 @@ button {
   padding: 7px 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.075);
+  background: rgba(255, 255, 255, 0.11);
   color: rgba(255, 255, 255, 0.82);
   font-size: 12px;
   font-weight: 850;
@@ -171,12 +172,12 @@ button {
   right: 18px;
   width: min(34vw, 180px);
   aspect-ratio: 9 / 14;
-  border: 1px solid rgba(232, 247, 239, 0.28);
+  border: 1px solid rgba(196, 170, 255, 0.34);
   border-radius: 8px;
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.1), transparent 38%),
     linear-gradient(180deg, #242934, #13171f);
-  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.5), 0 0 42px rgba(124, 92, 255, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   cursor: grab;
   overflow: hidden;
   touch-action: none;
@@ -204,14 +205,14 @@ button {
   grid-template-columns: repeat(3, minmax(82px, 1fr));
   gap: 8px;
   padding: 7px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
-  background: rgba(12, 14, 18, 0.74);
+  background: rgba(19, 23, 38, 0.68);
   color: rgba(255, 255, 255, 0.88);
   font-size: 13px;
   font-weight: 800;
   backdrop-filter: blur(12px);
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28), 0 0 36px rgba(32, 200, 255, 0.08);
 }
 
 .stats-panel span {
@@ -219,7 +220,7 @@ button {
   min-width: 0;
   padding: 8px 12px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.105);
   text-align: center;
 }
 
@@ -377,10 +378,10 @@ button {
   height: 36px;
   place-items: center;
   border-radius: 50%;
-  background: linear-gradient(145deg, var(--green), var(--blue));
-  color: #07150d;
+  background: linear-gradient(145deg, var(--violet), var(--cyan));
+  color: #ffffff;
   font-weight: 900;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42), 0 10px 28px rgba(47, 210, 118, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42), 0 10px 28px rgba(124, 92, 255, 0.24);
 }
 
 .profile-page label {
@@ -408,9 +409,9 @@ button {
 .profile-page input:focus,
 .profile-page textarea:focus,
 .chat-form input:focus {
-  border-color: rgba(47, 210, 118, 0.58);
+  border-color: rgba(124, 92, 255, 0.66);
   background: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 0 0 3px rgba(47, 210, 118, 0.14);
+  box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.18);
 }
 
 .age-check {
@@ -434,9 +435,9 @@ button {
 
 .save-profile {
   min-height: 48px;
-  background: linear-gradient(180deg, #38e083, var(--green));
-  color: var(--green-ink);
-  box-shadow: 0 14px 30px rgba(47, 210, 118, 0.16);
+  background: linear-gradient(90deg, var(--violet), var(--cyan));
+  color: #ffffff;
+  box-shadow: 0 14px 30px rgba(124, 92, 255, 0.22);
 }
 
 .blocked-section {
@@ -518,8 +519,8 @@ button {
 .tags span {
   padding: 4px 7px;
   border-radius: 999px;
-  background: rgba(47, 210, 118, 0.16);
-  color: #c4ffdd;
+  background: rgba(124, 92, 255, 0.18);
+  color: #efe7ff;
   font-size: 12px;
   font-weight: 800;
 }
@@ -639,8 +640,8 @@ button {
 }
 
 .chat-message.mine span {
-  background: var(--green);
-  color: var(--green-ink);
+  background: linear-gradient(90deg, var(--violet), var(--cyan));
+  color: #ffffff;
   font-weight: 700;
 }
 
@@ -668,8 +669,8 @@ button {
 .chat-form button {
   min-width: 0;
   border-radius: 8px;
-  background: #e8f7ef;
-  color: #12231a;
+  background: linear-gradient(90deg, var(--violet), var(--cyan));
+  color: #ffffff;
   font-weight: 900;
 }
 
@@ -694,7 +695,7 @@ button {
   gap: 10px;
   padding: 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(10, 12, 15, 0.9);
+  background: rgba(9, 12, 19, 0.94);
   backdrop-filter: blur(16px);
 }
 
@@ -702,30 +703,30 @@ button {
   min-height: 48px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  background: #252a33;
-  color: #d8dde7;
+  background: #1c2130;
+  color: #f2f4ff;
   font-weight: 850;
   transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
 }
 
 .toolbar button.active {
   border-color: rgba(255, 255, 255, 0.72);
-  background: #e8f7ef;
-  color: #12231a;
-  box-shadow: inset 0 0 0 2px rgba(38, 192, 111, 0.55);
+  background: #f4efff;
+  color: #160b32;
+  box-shadow: inset 0 0 0 2px rgba(124, 92, 255, 0.36);
   transform: translateY(-1px);
 }
 
 .toolbar button.primary {
-  border-color: rgba(47, 210, 118, 0.48);
-  background: linear-gradient(180deg, #38e083, var(--green));
-  color: var(--green-ink);
-  box-shadow: 0 14px 30px rgba(47, 210, 118, 0.18);
+  border-color: rgba(196, 170, 255, 0.36);
+  background: linear-gradient(90deg, var(--violet), var(--cyan));
+  color: #ffffff;
+  box-shadow: 0 14px 34px rgba(124, 92, 255, 0.28);
 }
 
 .toolbar button.danger {
-  border-color: rgba(229, 87, 87, 0.42);
-  background: var(--red);
+  border-color: rgba(255, 92, 116, 0.46);
+  background: rgba(255, 92, 116, 0.72);
   color: #fff5f5;
 }
 
@@ -736,8 +737,8 @@ button {
 }
 
 .toolbar button.camera {
-  border-color: rgba(113, 183, 255, 0.26);
-  background: #303948;
+  border-color: rgba(32, 200, 255, 0.24);
+  background: #20283a;
   color: #eef3ff;
 }
 
@@ -771,7 +772,7 @@ button:focus-visible {
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   padding: 10px 14px 14px;
-  background: rgba(10, 12, 15, 0.96);
+  background: rgba(9, 12, 19, 0.98);
   backdrop-filter: blur(16px);
 }
 
@@ -779,16 +780,16 @@ button:focus-visible {
   min-height: 42px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.07);
+  background: #1a1f2e;
   color: rgba(255, 255, 255, 0.72);
   font-weight: 900;
   transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
 }
 
 .app-nav button.active {
-  border-color: rgba(232, 247, 239, 0.45);
-  background: #e8f7ef;
-  color: #12231a;
+  border-color: rgba(196, 170, 255, 0.5);
+  background: #f4efff;
+  color: #160b32;
 }
 
 .chat-toast {
@@ -800,12 +801,12 @@ button:focus-visible {
   gap: 3px;
   width: min(360px, calc(100vw - 28px));
   padding: 11px 12px;
-  border: 1px solid rgba(232, 247, 239, 0.24);
+  border: 1px solid rgba(196, 170, 255, 0.28);
   border-radius: 8px;
-  background: rgba(22, 27, 25, 0.94);
+  background: rgba(20, 24, 39, 0.94);
   color: #ffffff;
   text-align: left;
-  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.38);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.38), 0 0 36px rgba(124, 92, 255, 0.16);
   backdrop-filter: blur(16px);
 }
 
