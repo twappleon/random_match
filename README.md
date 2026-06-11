@@ -76,6 +76,7 @@ flutter run
 - `POST /api/v1/commerce/orders`: 创建会员订单
 - `POST /api/v1/commerce/orders/{id}/confirm`: 确认会员订单并开通会员
 - `POST /api/v1/push/subscription`: 保存浏览器推送订阅
+- `POST /api/v1/push/device-token`: 保存 Native App FCM 推送 token
 - `GET /api/v1/ws?token=...`: WebRTC signaling WebSocket
 
 ## 商业化能力
@@ -146,6 +147,39 @@ docker exec random-match-mongo mongosh random_match --quiet --eval 'db.push_subs
 
 ```bash
 docker-compose -f deploy/docker-compose.prod.yml --env-file .env logs backend | grep push
+```
+
+## Native App 推送通知
+
+Flutter App 已接入 Firebase Cloud Messaging token 注册流程。App 启动并完成匿名登录后，会请求通知权限、取得 FCM token，并写入后端 `push_device_tokens` 集合；后端在用户离线时会通过 Firebase Admin SDK 发送 App Push。
+
+还需要在部署环境补齐这些配置：
+
+- Android Firebase app package name: `com.danawang.randommatch`
+- iOS Bundle ID: `com.danawang.randommatch`
+- Android 配置文件：`apps/mobile/android/app/google-services.json`
+- iOS 配置文件：`apps/mobile/ios/Runner/GoogleService-Info.plist`
+- Firebase Console > Cloud Messaging 里为 iOS app 上传 APNs Auth Key
+- 后端运行环境提供 Google service account，例如设置 `GOOGLE_APPLICATION_CREDENTIALS=/app/firebase-service-account.json`
+- 后端 `.env` 设置：
+
+```env
+FIREBASE_PROJECT_ID=你的 Firebase project id
+```
+
+注意：`google-services.json`、`GoogleService-Info.plist` 和 service account JSON 不提交到 Git。生产部署时通过服务器文件或 secret 挂载。
+
+排查 App token 是否写入：
+
+```bash
+docker exec random-match-mongo mongosh random_match --quiet --eval 'db.push_device_tokens.find({}, {userId:1, platform:1, updatedAt:1}).pretty()'
+```
+
+测试推送：
+
+```bash
+curl -X POST https://你的后端域名/api/v1/push/test \
+  -H "Authorization: Bearer 用户JWT"
 ```
 
 ## 线上截图文件

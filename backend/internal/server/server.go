@@ -69,6 +69,7 @@ func (s *Server) Routes() http.Handler {
 	auth.POST("/commerce/orders", s.createPaymentOrder)
 	auth.POST("/commerce/orders/:id/confirm", s.confirmPaymentOrder)
 	auth.POST("/push/subscription", s.savePushSubscriptionHandler)
+	auth.POST("/push/device-token", s.savePushDeviceTokenHandler)
 	auth.POST("/push/test", s.testPushHandler)
 
 	return router

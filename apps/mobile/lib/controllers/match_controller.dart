@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:get/get.dart' hide navigator;
@@ -50,7 +52,9 @@ class MatchController extends GetxController {
   RTCPeerConnection? _peer;
   MediaStream? _localStream;
   Timer? _statsTimer;
+  StreamSubscription<String>? _pushTokenSubscription;
   bool _remoteDescriptionReady = false;
+  bool _pushInitialized = false;
   final List<RTCIceCandidate> _pendingCandidates = [];
 
   @override
@@ -66,11 +70,13 @@ class MatchController extends GetxController {
         Timer.periodic(const Duration(seconds: 5), (_) => refreshStats());
     await refreshStats();
     await loadProfile();
+    unawaited(setupPushNotifications());
   }
 
   @override
   void onClose() {
     _statsTimer?.cancel();
+    _pushTokenSubscription?.cancel();
     _socket?.sink.close();
     _peer?.close();
     _localStream?.dispose();
@@ -93,9 +99,59 @@ class MatchController extends GetxController {
   }
 
   Future<void> ensureAuth() async {
-    if (await api.verifySession()) return;
+    if (await api.verifySession()) {
+      unawaited(setupPushNotifications());
+      return;
+    }
     final auth = await api.anonymousAuth();
     setProfile(auth.user);
+    unawaited(setupPushNotifications());
+  }
+
+  Future<void> setupPushNotifications() async {
+    if (_pushInitialized || api.token == null || api.token!.isEmpty) return;
+    _pushInitialized = true;
+    try {
+      final messaging = FirebaseMessaging.instance;
+      if (Platform.isIOS || Platform.isMacOS) {
+        await messaging.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+        await messaging.setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+      } else if (Platform.isAndroid) {
+        await messaging.requestPermission();
+      }
+
+      final token = await messaging.getToken();
+      if (token != null && token.isNotEmpty) {
+        await api.savePushDeviceToken(
+          token: token,
+          platform: Platform.isIOS ? 'ios' : 'android',
+        );
+      }
+      _pushTokenSubscription ??=
+          messaging.onTokenRefresh.listen((nextToken) async {
+        try {
+          if (nextToken.isNotEmpty) {
+            await api.savePushDeviceToken(
+              token: nextToken,
+              platform: Platform.isIOS ? 'ios' : 'android',
+            );
+          }
+        } catch (_) {
+          // Token registration is retried when the app starts again.
+        }
+      });
+    } catch (_) {
+      _pushInitialized = false;
+      // Firebase native config files are supplied per deployment.
+    }
   }
 
   Future<void> loadProfile() async {

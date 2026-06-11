@@ -134,6 +134,17 @@ class RandomMatchApi {
         options: _authOptions);
   }
 
+  Future<void> savePushDeviceToken({
+    required String token,
+    required String platform,
+  }) async {
+    await _dio.post<dynamic>(
+      '/api/v1/push/device-token',
+      data: {'token': token, 'platform': platform},
+      options: _authOptions,
+    );
+  }
+
   Uri wsUri() {
     final uri = Uri.parse(apiBase);
     return uri.replace(

@@ -110,6 +110,15 @@ type pushTestResponse struct {
 	Status string `json:"status" example:"sent"`
 }
 
+type pushDeviceTokenRequest struct {
+	Token    string `json:"token" example:"fcm-registration-token"`
+	Platform string `json:"platform" example:"ios" enums:"ios,android"`
+}
+
+type pushDeviceTokenResponse struct {
+	Status string `json:"status" example:"saved"`
+}
+
 type commerceStatusResponse struct {
 	IsMember            bool       `json:"isMember" example:"true"`
 	MembershipPlan      string     `json:"membershipPlan" example:"premium_monthly"`
