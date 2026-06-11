@@ -25,8 +25,18 @@ class RandomMatchApp extends StatelessWidget {
       title: 'Random Match',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xff2fd276),
+          seedColor: const Color(0xff7c5cff),
           brightness: Brightness.dark,
+        ),
+        scaffoldBackgroundColor: const Color(0xff050608),
+        snackBarTheme: SnackBarThemeData(
+          backgroundColor: const Color(0xff181b29),
+          contentTextStyle: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         useMaterial3: true,
       ),

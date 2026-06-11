@@ -12,212 +12,276 @@ class VideoPage extends GetView<MatchController> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment(-0.7, -0.72),
-                radius: 1.08,
-                colors: [Color(0x5c7c5cff), Color(0x00000000)],
-              ),
+    return Obx(() {
+      final status = controller.status.value;
+      final matched = status == MatchStatus.matched;
+      final waiting = status == MatchStatus.waiting;
+
+      return Stack(
+        children: [
+          Positioned.fill(
+            child: _AuroraVideoBackground(
+              child: matched
+                  ? RTCVideoView(
+                      controller.remoteRenderer,
+                      objectFit:
+                          RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                    )
+                  : const SizedBox.expand(),
             ),
-            child: DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment(0.78, -0.52),
-                  radius: 0.92,
-                  colors: [Color(0x4520c8ff), Color(0x00000000)],
-                ),
-              ),
-              child: DecoratedBox(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0xff111427),
-                      Color(0xff070914),
-                      Color(0xff07070b),
-                    ],
+          ),
+          const Positioned.fill(child: _AuroraScrim()),
+          Positioned(
+            top: 14,
+            left: 14,
+            right: 14,
+            child: SafeArea(
+              bottom: false,
+              child: _StatsBar(stats: controller.stats.value),
+            ),
+          ),
+          if (!matched)
+            Positioned.fill(
+              top: 96,
+              bottom: 212,
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _AuroraStateCard(
+                    waiting: waiting,
+                    title: waiting ? '正在寻找新朋友' : '今晚遇见新朋友',
+                    subtitle:
+                        waiting ? '保持页面开启，匹配成功后会自动进入视讯。' : '选择视讯或文字，随时开始随机匹配。',
                   ),
                 ),
-                child: RTCVideoView(
-                  controller.remoteRenderer,
-                  objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                ),
               ),
             ),
-          ),
-        ),
-        Positioned.fill(
-          child: IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.02),
-                    Colors.black.withValues(alpha: 0.18),
-                    Colors.black.withValues(alpha: 0.46),
-                  ],
-                ),
-              ),
+          if (matched)
+            Positioned(
+              right: 16,
+              bottom: 112,
+              width: 118,
+              height: 172,
+              child: _LocalPreview(renderer: controller.localRenderer),
             ),
-          ),
-        ),
-        Positioned(
-          top: 14,
-          left: 14,
-          right: 14,
-          child: Obx(() {
-            final stats = controller.stats.value;
-            return Row(
-              children: [
-                Expanded(child: _AuroraStat(value: stats.online, label: '在线')),
-                const SizedBox(width: 8),
-                Expanded(child: _AuroraStat(value: stats.waiting, label: '等待')),
-                const SizedBox(width: 8),
-                Expanded(
-                    child: _AuroraStat(value: stats.chatting, label: '聊天')),
-              ],
-            );
-          }),
-        ),
-        Obx(() {
-          if (controller.status.value == MatchStatus.matched) {
-            return const SizedBox.shrink();
-          }
-          final waiting = controller.status.value == MatchStatus.waiting;
-          return Positioned.fill(
-            top: 74,
-            bottom: 244,
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _AuroraStateCard(
-                  waiting: waiting,
-                  title: waiting ? '正在寻找新朋友' : '今晚遇见新朋友',
-                  subtitle:
-                      waiting ? '保持页面开启，匹配成功后会自动进入视讯。' : '更强的氛围感，快速连接在线用户。',
-                ),
-              ),
-            ),
-          );
-        }),
-        Positioned(
-          right: 16,
-          bottom: 112,
-          width: 118,
-          height: 172,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0x66c4aaff)),
-                boxShadow: const [
-                  BoxShadow(color: Color(0x4d7c5cff), blurRadius: 42),
-                  BoxShadow(color: Colors.black45, blurRadius: 30),
-                ],
-              ),
-              child: ColoredBox(
-                color: const Color(0xff202632),
-                child: RTCVideoView(controller.localRenderer, mirror: true),
-              ),
-            ),
-          ),
-        ),
-        Obx(() {
-          final show = controller.status.value == MatchStatus.matched &&
+          if (matched &&
               !controller.chatOpen.value &&
-              !controller.peerCardHidden.value;
-          if (!show) return const SizedBox.shrink();
-          return const Positioned(
-              left: 12, right: 12, bottom: 100, child: PeerBar());
-        }),
-        Obx(() {
-          if (!controller.chatOpen.value) return const SizedBox.shrink();
-          return const Positioned(
+              !controller.peerCardHidden.value)
+            const Positioned(
+                left: 12, right: 12, bottom: 100, child: PeerBar()),
+          if (controller.chatOpen.value)
+            const Positioned(
               left: 12,
               right: 12,
               bottom: 100,
               height: 320,
-              child: ChatSheet());
-        }),
-        Obx(() {
-          if (controller.chatOpen.value) return const SizedBox.shrink();
-          return Positioned(
-            left: 12,
-            bottom: 100,
-            child: FilledButton.tonalIcon(
-              onPressed: controller.toggleChat,
-              icon: const Icon(Icons.chat_bubble_outline),
-              label: const Text('文字'),
+              child: ChatSheet(),
             ),
-          );
-        }),
-        Positioned(
-          left: 12,
-          right: 12,
-          bottom: 18,
-          child: SafeArea(
-            top: false,
-            child: Obx(() {
-              final loading = controller.loading.value;
-              final leaving = controller.leaving.value;
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _AuroraButton(
-                          onPressed: controller.toggleChat,
-                          label: controller.chatOpen.value ? '收起文字' : '文字',
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _AuroraButton(
-                          onPressed:
-                              controller.status.value == MatchStatus.matched &&
-                                      controller.activePeerId != null &&
-                                      !controller.safetyLoading.value &&
-                                      !leaving
-                                  ? controller.blockPeer
-                                  : null,
-                          label: controller.safetyLoading.value ? '处理中' : '拉黑',
-                          dangerSoft: true,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  _AuroraButton(
-                    onPressed: loading ||
-                            controller.status.value == MatchStatus.waiting
-                        ? null
-                        : controller.startMatch,
-                    label: loading ? '匹配中' : '随机匹配',
-                    primary: true,
-                  ),
-                  const SizedBox(height: 8),
-                  _AuroraButton(
-                    onPressed:
-                        leaving || controller.status.value == MatchStatus.idle
-                            ? null
-                            : controller.leaveCall,
-                    label: leaving ? '退出中' : '退出',
-                    danger: true,
-                  ),
-                ],
-              );
-            }),
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: 18,
+            child: SafeArea(
+              top: false,
+              child: _ActionDock(
+                controller: controller,
+                status: status,
+              ),
+            ),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+class _AuroraVideoBackground extends StatelessWidget {
+  const _AuroraVideoBackground({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: RadialGradient(
+          center: Alignment(-0.72, -0.72),
+          radius: 1.08,
+          colors: [Color(0x677c5cff), Color(0x00000000)],
+        ),
+      ),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment(0.8, -0.5),
+            radius: 0.92,
+            colors: [Color(0x5520c8ff), Color(0x00000000)],
           ),
         ),
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xff151735),
+                Color(0xff080a16),
+                Color(0xff050608),
+              ],
+            ),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _AuroraScrim extends StatelessWidget {
+  const _AuroraScrim();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black.withValues(alpha: 0.02),
+              Colors.black.withValues(alpha: 0.16),
+              Colors.black.withValues(alpha: 0.5),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatsBar extends StatelessWidget {
+  const _StatsBar({required this.stats});
+
+  final RuntimeStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: _AuroraStat(value: stats.online, label: '在线')),
+        const SizedBox(width: 8),
+        Expanded(child: _AuroraStat(value: stats.waiting, label: '等待')),
+        const SizedBox(width: 8),
+        Expanded(child: _AuroraStat(value: stats.chatting, label: '聊天')),
       ],
+    );
+  }
+}
+
+class _LocalPreview extends StatelessWidget {
+  const _LocalPreview({required this.renderer});
+
+  final RTCVideoRenderer renderer;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0x66c4aaff)),
+          boxShadow: const [
+            BoxShadow(color: Color(0x4d7c5cff), blurRadius: 42),
+            BoxShadow(color: Colors.black45, blurRadius: 30),
+          ],
+        ),
+        child: ColoredBox(
+          color: const Color(0xff202632),
+          child: RTCVideoView(renderer, mirror: true),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionDock extends StatelessWidget {
+  const _ActionDock({
+    required this.controller,
+    required this.status,
+  });
+
+  final MatchController controller;
+  final MatchStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final loading = controller.loading.value;
+    final leaving = controller.leaving.value;
+    final matched = status == MatchStatus.matched;
+    final waiting = status == MatchStatus.waiting;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        borderRadius: BorderRadius.circular(12),
+        color: const Color(0xd9080a13),
+        boxShadow: const [
+          BoxShadow(color: Colors.black54, blurRadius: 34),
+          BoxShadow(color: Color(0x267c5cff), blurRadius: 44),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _AuroraButton(
+                    onPressed: controller.toggleChat,
+                    icon: controller.chatOpen.value
+                        ? Icons.keyboard_arrow_down_rounded
+                        : Icons.chat_bubble_outline_rounded,
+                    label: controller.chatOpen.value ? '收起文字' : '文字',
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _AuroraButton(
+                    onPressed: matched &&
+                            controller.activePeerId != null &&
+                            !controller.safetyLoading.value &&
+                            !leaving
+                        ? controller.blockPeer
+                        : null,
+                    icon: Icons.block_rounded,
+                    label: controller.safetyLoading.value ? '处理中' : '拉黑',
+                    dangerSoft: true,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _AuroraButton(
+              onPressed: loading || waiting ? null : controller.startMatch,
+              icon: Icons.auto_awesome_rounded,
+              label: loading || waiting ? '匹配中' : '随机匹配',
+              primary: true,
+            ),
+            const SizedBox(height: 8),
+            _AuroraButton(
+              onPressed: leaving || status == MatchStatus.idle
+                  ? null
+                  : controller.leaveCall,
+              icon: Icons.logout_rounded,
+              label: leaving ? '退出中' : '退出',
+              danger: true,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -385,6 +449,7 @@ class _AuroraButton extends StatelessWidget {
   const _AuroraButton({
     required this.label,
     this.onPressed,
+    this.icon,
     this.primary = false,
     this.danger = false,
     this.dangerSoft = false,
@@ -392,6 +457,7 @@ class _AuroraButton extends StatelessWidget {
 
   final String label;
   final VoidCallback? onPressed;
+  final IconData? icon;
   final bool primary;
   final bool danger;
   final bool dangerSoft;
@@ -431,8 +497,22 @@ class _AuroraButton extends StatelessWidget {
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
           onPressed: onPressed,
-          child:
-              Text(label, style: const TextStyle(fontWeight: FontWeight.w900)),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 18),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  label,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
