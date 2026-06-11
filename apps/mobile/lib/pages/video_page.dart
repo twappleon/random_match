@@ -265,9 +265,14 @@ class _ActionDock extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             _AuroraButton(
-              onPressed: loading || waiting ? null : controller.startMatch,
+              onPressed:
+                  loading || waiting || matched ? null : controller.startMatch,
               icon: Icons.auto_awesome_rounded,
-              label: loading || waiting ? '匹配中' : '随机匹配',
+              label: matched
+                  ? '已连线'
+                  : loading || waiting
+                      ? '匹配中'
+                      : '随机匹配',
               primary: true,
             ),
             const SizedBox(height: 8),
