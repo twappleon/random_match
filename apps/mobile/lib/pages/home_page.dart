@@ -14,6 +14,7 @@ class HomePage extends GetView<MatchController> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xff050608),
+      resizeToAvoidBottomInset: true,
       body: Obx(() {
         return IndexedStack(
           index: controller.page.value.index,

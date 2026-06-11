@@ -16,80 +16,94 @@ class VideoPage extends GetView<MatchController> {
       final status = controller.status.value;
       final matched = status == MatchStatus.matched;
       final waiting = status == MatchStatus.waiting;
+      final chatOpen = controller.chatOpen.value;
+      final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+      final keyboardOpen = keyboardInset > 0;
+      final chatBottom = keyboardOpen ? 12.0 : 100.0;
 
-      return Stack(
-        children: [
-          Positioned.fill(
-            child: _AuroraVideoBackground(
-              child: matched
-                  ? RTCVideoView(
-                      controller.remoteRenderer,
-                      objectFit:
-                          RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                    )
-                  : const SizedBox.expand(),
-            ),
-          ),
-          const Positioned.fill(child: _AuroraScrim()),
-          Positioned(
-            top: 14,
-            left: 14,
-            right: 14,
-            child: SafeArea(
-              bottom: false,
-              child: _StatsBar(stats: controller.stats.value),
-            ),
-          ),
-          if (!matched)
-            Positioned.fill(
-              top: 96,
-              bottom: 212,
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _AuroraStateCard(
-                    waiting: waiting,
-                    title: waiting ? '正在寻找新朋友' : '今晚遇见新朋友',
-                    subtitle:
-                        waiting ? '保持页面开启，匹配成功后会自动进入视讯。' : '选择视讯或文字，随时开始随机匹配。',
-                  ),
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final chatHeight = (keyboardOpen
+                  ? constraints.maxHeight - 24
+                  : constraints.maxHeight * 0.48)
+              .clamp(300.0, 430.0)
+              .toDouble();
+
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: _AuroraVideoBackground(
+                  child: matched
+                      ? RTCVideoView(
+                          controller.remoteRenderer,
+                          objectFit:
+                              RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                        )
+                      : const SizedBox.expand(),
                 ),
               ),
-            ),
-          if (matched)
-            Positioned(
-              right: 16,
-              bottom: 112,
-              width: 118,
-              height: 172,
-              child: _LocalPreview(renderer: controller.localRenderer),
-            ),
-          if (matched &&
-              !controller.chatOpen.value &&
-              !controller.peerCardHidden.value)
-            const Positioned(
-                left: 12, right: 12, bottom: 100, child: PeerBar()),
-          if (controller.chatOpen.value)
-            const Positioned(
-              left: 12,
-              right: 12,
-              bottom: 100,
-              height: 320,
-              child: ChatSheet(),
-            ),
-          Positioned(
-            left: 12,
-            right: 12,
-            bottom: 18,
-            child: SafeArea(
-              top: false,
-              child: _ActionDock(
-                controller: controller,
-                status: status,
+              const Positioned.fill(child: _AuroraScrim()),
+              Positioned(
+                top: 14,
+                left: 14,
+                right: 14,
+                child: SafeArea(
+                  bottom: false,
+                  child: _StatsBar(stats: controller.stats.value),
+                ),
               ),
-            ),
-          ),
-        ],
+              if (!matched)
+                Positioned.fill(
+                  top: 96,
+                  bottom: 212,
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _AuroraStateCard(
+                        waiting: waiting,
+                        title: waiting ? '正在寻找新朋友' : '今晚遇见新朋友',
+                        subtitle: waiting
+                            ? '保持页面开启，匹配成功后会自动进入视讯。'
+                            : '选择视讯或文字，随时开始随机匹配。',
+                      ),
+                    ),
+                  ),
+                ),
+              if (matched && !chatOpen)
+                Positioned(
+                  right: 16,
+                  bottom: 112,
+                  width: 118,
+                  height: 172,
+                  child: _LocalPreview(renderer: controller.localRenderer),
+                ),
+              if (matched && !chatOpen && !controller.peerCardHidden.value)
+                const Positioned(
+                    left: 12, right: 12, bottom: 100, child: PeerBar()),
+              if (chatOpen)
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: chatBottom,
+                  height: chatHeight,
+                  child: const ChatSheet(),
+                ),
+              if (!chatOpen)
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: 18,
+                  child: SafeArea(
+                    top: false,
+                    child: _ActionDock(
+                      controller: controller,
+                      status: status,
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       );
     });
   }
