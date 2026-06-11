@@ -265,10 +265,10 @@ class MatchController extends GetxController {
         'autoGainControl': true,
       },
       'video': {
-        'width': {'ideal': 480, 'max': 640},
-        'height': {'ideal': 640, 'max': 720},
-        'frameRate': {'ideal': 15, 'max': 20},
-        'facingMode': {'ideal': 'user'},
+        'width': 480,
+        'height': 640,
+        'frameRate': 15,
+        'facingMode': 'user',
       },
     });
     localRenderer.srcObject = _localStream;
