@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:get/get.dart' hide navigator;
+import 'package:permission_handler/permission_handler.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../data/models.dart';
@@ -256,6 +257,7 @@ class MatchController extends GetxController {
 
   Future<void> openMedia() async {
     stopMedia();
+    await ensureMediaPermissions();
     _localStream = await navigator.mediaDevices.getUserMedia({
       'audio': {
         'echoCancellation': true,
@@ -270,6 +272,14 @@ class MatchController extends GetxController {
       },
     });
     localRenderer.srcObject = _localStream;
+  }
+
+  Future<void> ensureMediaPermissions() async {
+    final camera = await Permission.camera.request();
+    final microphone = await Permission.microphone.request();
+    if (!camera.isGranted || !microphone.isGranted) {
+      throw Exception('请允许相机和麦克风权限后再开始视讯匹配');
+    }
   }
 
   void stopMedia() {
