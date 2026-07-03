@@ -1,4 +1,4 @@
 const apiBase = String.fromEnvironment(
   'API_BASE',
-  defaultValue: 'http://localhost:8080',
+  defaultValue: 'https://h5.danawang8899.com',
 );
