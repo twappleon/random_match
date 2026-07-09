@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://danawang8899.com/sitemap.xml

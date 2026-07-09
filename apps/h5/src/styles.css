@@ -301,6 +301,64 @@ button {
   box-shadow: 0 14px 30px rgba(243, 201, 103, 0.2);
 }
 
+.guide-page {
+  display: grid;
+  gap: 16px;
+}
+
+.guide-hero {
+  display: grid;
+  gap: 8px;
+}
+
+.guide-hero strong {
+  color: #ffffff;
+  font-size: 24px;
+  line-height: 1.18;
+}
+
+.guide-hero span,
+.guide-page p {
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.65;
+}
+
+.guide-page article {
+  display: grid;
+  gap: 7px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.guide-page h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 17px;
+}
+
+.guide-page p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.guide-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.guide-links a {
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #dfe8ff;
+  font-weight: 850;
+  text-align: center;
+  text-decoration: none;
+}
+
 .profile-panel {
   width: min(360px, calc(100vw - 32px));
   display: grid;
@@ -769,7 +827,7 @@ button:focus-visible {
 
 .app-nav {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   padding: 10px 14px 14px;
   background: rgba(9, 12, 19, 0.98);
@@ -915,6 +973,10 @@ button:focus-visible {
 
   .app-nav {
     padding: 8px 12px 12px;
+  }
+
+  .guide-links {
+    grid-template-columns: 1fr;
   }
 
   .chat-toast {

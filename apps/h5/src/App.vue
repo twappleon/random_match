@@ -162,6 +162,33 @@
       </div>
     </section>
 
+    <section v-show="activePage === 'guide'" class="page page-shell">
+      <div class="content-card guide-page" aria-label="guide">
+        <div class="guide-hero">
+          <strong>Random Match 使用指南</strong>
+          <span>匿名视讯适合轻松认识新朋友，也需要清楚的安全边界和使用方式。</span>
+        </div>
+        <article>
+          <h2>开始视讯前</h2>
+          <p>建议先填写昵称、简介和兴趣标签，让对方知道可以从哪里展开话题。请只使用你愿意公开给陌生人看到的资料，不要在个人简介里留下电话、住址、帐号密码、支付资讯或其他敏感内容。</p>
+        </article>
+        <article>
+          <h2>如何保持安全</h2>
+          <p>如果对方让你不舒服，可以立即离开、举报或拉黑。拉黑后系统会记录关系，并尽量避免再次把你们匹配到一起。遇到骚扰、裸露、威胁、诈骗或未成年人相关风险时，请优先使用举报功能。</p>
+        </article>
+        <article>
+          <h2>会员与匹配额度</h2>
+          <p>免费用户每天有固定随机匹配次数。会员可以无限匹配，并进入优先队列，适合想减少等待时间的用户。付费前请确认你了解服务内容和当前价格。</p>
+        </article>
+        <div class="guide-links">
+          <a href="/about.html" target="_blank" rel="noreferrer">关于 Random Match</a>
+          <a href="/safety.html" target="_blank" rel="noreferrer">安全指南</a>
+          <a href="/privacy.html" target="_blank" rel="noreferrer">隐私政策</a>
+          <a href="/terms.html" target="_blank" rel="noreferrer">服务条款</a>
+        </div>
+      </div>
+    </section>
+
     <nav v-if="activePage === 'video'" class="toolbar" aria-label="match controls">
       <button class="chat-toggle" @click="toggleChat">
         {{ chatOpen ? '收起文字' : '文字' }}
@@ -184,6 +211,7 @@
       <button :class="{ active: activePage === 'video' }" @click="switchPage('video')">视讯</button>
       <button :class="{ active: activePage === 'profile' }" @click="switchPage('profile')">资料</button>
       <button :class="{ active: activePage === 'membership' }" @click="switchPage('membership')">会员</button>
+      <button :class="{ active: activePage === 'guide' }" @click="switchPage('guide')">指南</button>
     </nav>
 
     <button v-if="chatToastText" class="chat-toast" type="button" @click="openChatFromToast">
@@ -201,7 +229,7 @@ import { anonymousAuth, blockUser, confirmPaymentOrder, createPaymentOrder, fetc
 import { initAnalytics } from './firebase'
 
 type Status = 'idle' | 'waiting' | 'matched'
-type Page = 'video' | 'profile' | 'membership'
+type Page = 'video' | 'profile' | 'membership' | 'guide'
 type ChatMessage = {
   id: string
   sender: 'self' | 'peer'
