@@ -26,6 +26,7 @@ type anonymousAuthResponse struct {
 type joinMatchRequest struct {
 	Mode   model.MatchMode `json:"mode" example:"video" enums:"video"`
 	Region string          `json:"region" example:"global"`
+	Gender string          `json:"gender" example:"everyone"`
 }
 
 type waitingMatchResponse struct {
@@ -68,6 +69,8 @@ type updateProfileRequest struct {
 	DisplayName  string   `json:"displayName" example:"Star Voyager"`
 	Bio          string   `json:"bio" example:"喜欢深夜聊天、电影和旅行"`
 	Interests    []string `json:"interests" example:"movie,music,travel"`
+	Region       string   `json:"region" example:"global"`
+	Gender       string   `json:"gender" example:"private"`
 	AgeConfirmed bool     `json:"ageConfirmed" example:"true"`
 }
 
@@ -90,6 +93,10 @@ type blockedUserItem struct {
 
 type blockedUsersResponse struct {
 	Users []blockedUserItem `json:"users"`
+}
+
+type discoverProfilesResponse struct {
+	Users []model.UserProfile `json:"users"`
 }
 
 type pushSubscriptionRequest struct {
@@ -127,6 +134,7 @@ type commerceStatusResponse struct {
 	DailyUsed           int        `json:"dailyUsed" example:"3"`
 	DailyRemaining      int        `json:"dailyRemaining" example:"7"`
 	PriorityQueue       bool       `json:"priorityQueue" example:"true"`
+	GemsBalance         int        `json:"gemsBalance" example:"300"`
 }
 
 type createPaymentRequest struct {

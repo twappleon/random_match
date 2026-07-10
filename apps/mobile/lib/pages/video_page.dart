@@ -62,11 +62,12 @@ class VideoPage extends GetView<MatchController> {
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: _AuroraStateCard(
+                        controller: controller,
                         waiting: waiting,
                         title: waiting ? '正在寻找新朋友' : '今晚遇见新朋友',
                         subtitle: waiting
                             ? '保持页面开启，匹配成功后会自动进入视讯。'
-                            : '选择视讯或文字，随时开始随机匹配。',
+                            : '用视讯、语音、地区和对象偏好快速进入随机连线。',
                       ),
                     ),
                   ),
@@ -255,6 +256,54 @@ class _ActionDock extends StatelessWidget {
             Row(
               children: [
                 Expanded(
+                  child: _PreferencePill(
+                    icon: status == MatchStatus.matched
+                        ? Icons.lock_open_rounded
+                        : Icons.public_rounded,
+                    label:
+                        '${controller.matchMode.value == MatchModePreference.voice ? '语音' : '视讯'} · ${controller.regionLabel(controller.selectedRegion.value)} · ${controller.genderPreferenceLabel}',
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filledTonal(
+                  tooltip: '探索',
+                  onPressed: () => controller.switchPage(AppPage.discover),
+                  icon: const Icon(Icons.style_outlined),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (!matched && !waiting) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: _ModeButton(
+                      selected: controller.matchMode.value ==
+                          MatchModePreference.video,
+                      icon: Icons.videocam_outlined,
+                      label: '视讯',
+                      onTap: () => controller.matchMode.value =
+                          MatchModePreference.video,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _ModeButton(
+                      selected: controller.matchMode.value ==
+                          MatchModePreference.voice,
+                      icon: Icons.mic_none_rounded,
+                      label: '语音',
+                      onTap: () => controller.matchMode.value =
+                          MatchModePreference.voice,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+            Row(
+              children: [
+                Expanded(
                   child: _AuroraButton(
                     onPressed: controller.toggleChat,
                     icon: controller.chatOpen.value
@@ -307,6 +356,73 @@ class _ActionDock extends StatelessWidget {
   }
 }
 
+class _ModeButton extends StatelessWidget {
+  const _ModeButton({
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 42,
+      child: FilledButton.icon(
+        style: FilledButton.styleFrom(
+          backgroundColor:
+              selected ? const Color(0xff25305a) : const Color(0xff1c2130),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        onPressed: onTap,
+        icon: Icon(icon, size: 18),
+        label: Text(label, style: const TextStyle(fontWeight: FontWeight.w900)),
+      ),
+    );
+  }
+}
+
+class _PreferencePill extends StatelessWidget {
+  const _PreferencePill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: Colors.white70),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _AuroraStat extends StatelessWidget {
   const _AuroraStat({required this.value, required this.label});
 
@@ -347,11 +463,13 @@ class _AuroraStat extends StatelessWidget {
 
 class _AuroraStateCard extends StatelessWidget {
   const _AuroraStateCard({
+    required this.controller,
     required this.waiting,
     required this.title,
     required this.subtitle,
   });
 
+  final MatchController controller;
   final bool waiting;
   final String title;
   final String subtitle;
@@ -399,7 +517,7 @@ class _AuroraStateCard extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
                 child: Text(
-                  waiting ? 'LIVE MATCH' : 'AURORA READY',
+                  waiting ? 'LIVE MATCH' : 'RANDOM LIVE',
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
@@ -426,17 +544,96 @@ class _AuroraStateCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            const Wrap(
+            Wrap(
               spacing: 8,
               runSpacing: 8,
               alignment: WrapAlignment.center,
               children: [
-                _AuroraChip('随机视讯'),
-                _AuroraChip('快速连接'),
-                _AuroraChip('安全操作'),
+                _AuroraChip(
+                    controller.matchMode.value == MatchModePreference.voice
+                        ? '语音模式'
+                        : '视讯模式'),
+                _AuroraChip(
+                    controller.regionLabel(controller.selectedRegion.value)),
+                _AuroraChip(controller.genderPreferenceLabel),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _HeroShortcut(
+                    icon: Icons.style_outlined,
+                    label: '探索',
+                    onTap: () => controller.switchPage(AppPage.discover),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _HeroShortcut(
+                    icon: Icons.workspace_premium_outlined,
+                    label:
+                        '${controller.commerceStatus.value?.gemsBalance ?? 0} Gems',
+                    onTap: () => controller.switchPage(AppPage.membership),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _HeroShortcut(
+                    icon: Icons.shield_outlined,
+                    label: '安全',
+                    onTap: () => controller.switchPage(AppPage.profile),
+                  ),
+                ),
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroShortcut extends StatelessWidget {
+  const _HeroShortcut({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 20, color: Colors.white70),
+              const SizedBox(height: 5),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

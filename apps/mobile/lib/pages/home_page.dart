@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../controllers/match_controller.dart';
 import '../data/models.dart';
+import 'discover_page.dart';
 import 'membership_page.dart';
 import 'profile_page.dart';
 import 'video_page.dart';
@@ -20,6 +21,7 @@ class HomePage extends GetView<MatchController> {
           index: controller.page.value.index,
           children: const [
             VideoPage(),
+            DiscoverPage(),
             ProfilePage(),
             MembershipPage(),
           ],
@@ -73,8 +75,8 @@ class _AuroraBottomNav extends StatelessWidget {
               Expanded(
                 child: _AuroraNavItem(
                   selected: selectedIndex == 1,
-                  icon: Icons.person_outline_rounded,
-                  label: '资料',
+                  icon: Icons.style_outlined,
+                  label: '探索',
                   onTap: () => onSelected(1),
                 ),
               ),
@@ -82,9 +84,18 @@ class _AuroraBottomNav extends StatelessWidget {
               Expanded(
                 child: _AuroraNavItem(
                   selected: selectedIndex == 2,
+                  icon: Icons.person_outline_rounded,
+                  label: '资料',
+                  onTap: () => onSelected(2),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _AuroraNavItem(
+                  selected: selectedIndex == 3,
                   icon: Icons.workspace_premium_outlined,
                   label: '会员',
-                  onTap: () => onSelected(2),
+                  onTap: () => onSelected(3),
                 ),
               ),
             ],

@@ -63,6 +63,7 @@ func (s *Server) commerceStatus(c *gin.Context) {
 		"dailyUsed":           usage.DailyUsed,
 		"dailyRemaining":      usage.DailyRemaining,
 		"priorityQueue":       member,
+		"gemsBalance":         user.GemsBalance,
 	})
 }
 
@@ -147,6 +148,8 @@ func (s *Server) confirmPaymentOrder(c *gin.Context) {
 		"membershipPlan":      premiumMonthlyPlan,
 		"membershipExpiresAt": expiresAt,
 		"updatedAt":           now,
+	}, "$inc": bson.M{
+		"gemsBalance": 300,
 	}})
 	if err != nil {
 		log.Printf("payment membership update failed user_id=%s order_id=%s err=%v", userID, orderID, err)

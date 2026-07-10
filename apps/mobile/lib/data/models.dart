@@ -1,6 +1,10 @@
 enum MatchStatus { idle, waiting, matched }
 
-enum AppPage { video, profile, membership }
+enum AppPage { video, discover, profile, membership }
+
+enum MatchModePreference { video, voice }
+
+enum GenderPreference { everyone, female, male }
 
 enum ChatSender { self, peer }
 
@@ -12,6 +16,9 @@ class UserProfile {
     required this.ageConfirmed,
     this.bio = '',
     this.interests = const [],
+    this.region = 'global',
+    this.gender = '',
+    this.trustBadge = false,
     this.membershipPlan = '',
     this.membershipExpiresAt,
     this.isMember = false,
@@ -23,6 +30,9 @@ class UserProfile {
   final bool ageConfirmed;
   final String bio;
   final List<String> interests;
+  final String region;
+  final String gender;
+  final bool trustBadge;
   final String membershipPlan;
   final DateTime? membershipExpiresAt;
   final bool isMember;
@@ -38,6 +48,9 @@ class UserProfile {
           .map((item) => item.toString())
           .where((item) => item.trim().isNotEmpty)
           .toList(),
+      region: json['region'] as String? ?? 'global',
+      gender: json['gender'] as String? ?? '',
+      trustBadge: json['trustBadge'] == true,
       membershipPlan: json['membershipPlan'] as String? ?? '',
       membershipExpiresAt: DateTime.tryParse(
         json['membershipExpiresAt'] as String? ?? '',
@@ -118,6 +131,7 @@ class CommerceStatus {
     required this.dailyUsed,
     required this.dailyRemaining,
     required this.priorityQueue,
+    required this.gemsBalance,
     this.membershipPlan = '',
     this.membershipExpiresAt,
   });
@@ -127,6 +141,7 @@ class CommerceStatus {
   final int dailyUsed;
   final int dailyRemaining;
   final bool priorityQueue;
+  final int gemsBalance;
   final String membershipPlan;
   final DateTime? membershipExpiresAt;
 
@@ -137,6 +152,7 @@ class CommerceStatus {
       dailyUsed: json['dailyUsed'] as int? ?? 0,
       dailyRemaining: json['dailyRemaining'] as int? ?? 0,
       priorityQueue: json['priorityQueue'] == true,
+      gemsBalance: json['gemsBalance'] as int? ?? 0,
       membershipPlan: json['membershipPlan'] as String? ?? '',
       membershipExpiresAt: DateTime.tryParse(
         json['membershipExpiresAt'] as String? ?? '',

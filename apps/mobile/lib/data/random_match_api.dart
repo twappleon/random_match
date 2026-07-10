@@ -46,6 +46,8 @@ class RandomMatchApi {
     required String bio,
     required List<String> interests,
     required bool ageConfirmed,
+    required String region,
+    required String gender,
   }) async {
     final res = await _dio.put<Map<String, dynamic>>(
       '/api/v1/me',
@@ -54,6 +56,8 @@ class RandomMatchApi {
         'bio': bio,
         'interests': interests,
         'ageConfirmed': ageConfirmed,
+        'region': region,
+        'gender': gender,
       },
       options: _authOptions,
     );
@@ -66,13 +70,33 @@ class RandomMatchApi {
     return RuntimeStats.fromJson(res.data ?? {});
   }
 
-  Future<MatchResponse> joinMatch() async {
+  Future<MatchResponse> joinMatch({
+    required String mode,
+    required String region,
+    required String gender,
+  }) async {
     final res = await _dio.post<Map<String, dynamic>>(
       '/api/v1/match/join',
-      data: {'mode': 'video', 'region': 'global'},
+      data: {'mode': mode, 'region': region, 'gender': gender},
       options: _authOptions,
     );
     return MatchResponse.fromJson(res.data ?? {});
+  }
+
+  Future<List<UserProfile>> fetchDiscoverProfiles({
+    required String region,
+    required String gender,
+  }) async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/discover/profiles',
+      queryParameters: {'region': region, 'gender': gender},
+      options: _authOptions,
+    );
+    final users = res.data?['users'] as List? ?? const [];
+    return users
+        .whereType<Map<String, dynamic>>()
+        .map(UserProfile.fromJson)
+        .toList();
   }
 
   Future<void> leaveMatch() async {

@@ -39,6 +39,48 @@ class ProfilePage extends GetView<MatchController> {
                   controller: controller.interestsInput,
                   decoration: const InputDecoration(labelText: '兴趣标签'),
                 ),
+                const SizedBox(height: 10),
+                Obx(() => DropdownButtonFormField<String>(
+                      key: ValueKey(
+                          'profile-region-${controller.selectedRegion.value}'),
+                      initialValue: controller.selectedRegion.value,
+                      decoration: const InputDecoration(
+                        labelText: '常用地区',
+                        prefixIcon: Icon(Icons.public_rounded),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'global', child: Text('全球')),
+                        DropdownMenuItem(value: 'nearby', child: Text('附近')),
+                        DropdownMenuItem(value: 'asia', child: Text('亚洲')),
+                        DropdownMenuItem(value: 'europe', child: Text('欧洲')),
+                        DropdownMenuItem(value: 'america', child: Text('美洲')),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          controller.selectedRegion.value = value;
+                        }
+                      },
+                    )),
+                const SizedBox(height: 10),
+                Obx(() => DropdownButtonFormField<String>(
+                      key: ValueKey(
+                          'profile-gender-${controller.profileGender.value}'),
+                      initialValue: controller.profileGender.value,
+                      decoration: const InputDecoration(
+                        labelText: '性别显示',
+                        prefixIcon: Icon(Icons.badge_outlined),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'private', child: Text('不公开')),
+                        DropdownMenuItem(value: 'female', child: Text('女生')),
+                        DropdownMenuItem(value: 'male', child: Text('男生')),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          controller.profileGender.value = value;
+                        }
+                      },
+                    )),
                 const SizedBox(height: 8),
                 Obx(() => CheckboxListTile(
                       value: controller.ageConfirmed.value,

@@ -58,6 +58,7 @@ func (s *Server) Routes() http.Handler {
 	auth.GET("/auth/session", s.authSession)
 	auth.GET("/me", s.getProfile)
 	auth.PUT("/me", s.updateProfile)
+	auth.GET("/discover/profiles", s.discoverProfiles)
 	auth.POST("/match/join", s.joinMatch)
 	auth.POST("/match/leave", s.leaveMatch)
 	auth.POST("/match/snapshot", s.saveMatchSnapshot)
@@ -117,6 +118,9 @@ func (s *Server) anonymousAuth(c *gin.Context) {
 		DisplayName:  "星球旅人",
 		AvatarURL:    defaultAvatarURL(),
 		Interests:    []string{"聊天", "电影", "音乐"},
+		Region:       "global",
+		Gender:       "private",
+		GemsBalance:  120,
 		AgeConfirmed: false,
 		CreatedAt:    now,
 		UpdatedAt:    now,
@@ -205,6 +209,8 @@ func (s *Server) updateProfile(c *gin.Context) {
 		return
 	}
 	interests := normalizeInterests(req.Interests)
+	region := normalizeRegion(req.Region)
+	gender := normalizeProfileGender(req.Gender)
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
@@ -212,6 +218,8 @@ func (s *Server) updateProfile(c *gin.Context) {
 		"displayName":  displayName,
 		"bio":          bio,
 		"interests":    interests,
+		"region":       region,
+		"gender":       gender,
 		"ageConfirmed": req.AgeConfirmed,
 		"updatedAt":    time.Now().UTC(),
 	}})
@@ -256,6 +264,72 @@ func (s *Server) stats(c *gin.Context) {
 	})
 }
 
+// discoverProfiles godoc
+//
+//	@Summary		List discoverable profiles
+//	@Description	Returns a small Lounge-style list of profiles excluding the current user and blocked users.
+//	@Tags			discover
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	discoverProfilesResponse
+//	@Failure		401	{object}	errorResponse
+//	@Failure		500	{object}	errorResponse
+//	@Router			/api/v1/discover/profiles [get]
+func (s *Server) discoverProfiles(c *gin.Context) {
+	userID := userIDFromContext(c)
+	region := normalizeRegion(c.Query("region"))
+	gender := normalizeGenderPreference(c.Query("gender"))
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	blockedIDs, err := s.blockedUserIDs(ctx, userID)
+	if err != nil {
+		log.Printf("discover blocks failed user_id=%s err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "discover failed"})
+		return
+	}
+	excluded := append(blockedIDs, userID)
+	filter := bson.M{
+		"_id":          bson.M{"$nin": excluded},
+		"ageConfirmed": true,
+	}
+	if region != "global" {
+		filter["region"] = region
+	}
+	if gender != "everyone" {
+		filter["gender"] = gender
+	}
+
+	cursor, err := s.db.DB.Collection("users").Find(
+		ctx,
+		filter,
+		options.Find().SetSort(bson.M{"updatedAt": -1}).SetLimit(20),
+	)
+	if err != nil {
+		log.Printf("discover query failed user_id=%s err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "discover failed"})
+		return
+	}
+	defer cursor.Close(ctx)
+
+	users := make([]model.UserProfile, 0, 20)
+	for cursor.Next(ctx) {
+		var user model.User
+		if err := cursor.Decode(&user); err != nil {
+			log.Printf("discover decode failed user_id=%s err=%v", userID, err)
+			continue
+		}
+		users = append(users, profileFromUser(user))
+	}
+	if err := cursor.Err(); err != nil {
+		log.Printf("discover cursor failed user_id=%s err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "discover failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"users": users})
+}
+
 // joinMatch godoc
 //
 //	@Summary		Join matchmaking queue
@@ -279,16 +353,15 @@ func (s *Server) joinMatch(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
 		return
 	}
-	if req.Mode != model.MatchModeVideo {
+	if req.Mode != model.MatchModeVideo && req.Mode != model.MatchModeVoice {
 		log.Printf("match join invalid_mode user_id=%s mode=%q", userID, req.Mode)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "mode must be video"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "mode must be video or voice"})
 		return
 	}
-	if strings.TrimSpace(req.Region) == "" {
-		req.Region = "global"
-	}
+	req.Region = normalizeRegion(req.Region)
+	req.Gender = normalizeGenderPreference(req.Gender)
 
-	queueKey := "match:queue:v2:" + string(req.Mode) + ":" + req.Region
+	queueKey := "match:queue:v2:" + string(req.Mode) + ":" + req.Region + ":" + req.Gender
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
@@ -807,17 +880,26 @@ func (s *Server) userProfile(ctx context.Context, userID string) (model.UserProf
 	if err := s.db.DB.Collection("users").FindOne(ctx, bson.M{"_id": userID}).Decode(&user); err != nil {
 		return model.UserProfile{}, err
 	}
+	return profileFromUser(user), nil
+}
+
+func profileFromUser(user model.User) model.UserProfile {
+	region := normalizeRegion(user.Region)
+	gender := normalizeProfileGender(user.Gender)
 	return model.UserProfile{
 		ID:                  user.ID,
 		DisplayName:         user.DisplayName,
 		AvatarURL:           user.AvatarURL,
 		Bio:                 user.Bio,
 		Interests:           user.Interests,
+		Region:              region,
+		Gender:              gender,
+		TrustBadge:          len(user.Interests) >= 3 && user.AgeConfirmed,
 		AgeConfirmed:        user.AgeConfirmed,
 		MembershipPlan:      user.MembershipPlan,
 		MembershipExpiresAt: user.MembershipExpiresAt,
 		IsMember:            isActiveMember(user, time.Now().UTC()),
-	}, nil
+	}
 }
 
 func (s *Server) isBlockedEither(ctx context.Context, userID, peerID string) (bool, error) {
@@ -826,6 +908,31 @@ func (s *Server) isBlockedEither(ctx context.Context, userID, peerID string) (bo
 		{"userId": peerID, "blockedId": userID},
 	}})
 	return count > 0, err
+}
+
+func (s *Server) blockedUserIDs(ctx context.Context, userID string) ([]string, error) {
+	cursor, err := s.db.DB.Collection("user_blocks").Find(ctx, bson.M{"$or": []bson.M{
+		{"userId": userID},
+		{"blockedId": userID},
+	}})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	ids := make([]string, 0)
+	for cursor.Next(ctx) {
+		var block model.UserBlock
+		if err := cursor.Decode(&block); err != nil {
+			continue
+		}
+		if block.UserID == userID {
+			ids = append(ids, block.BlockedID)
+		} else {
+			ids = append(ids, block.UserID)
+		}
+	}
+	return ids, cursor.Err()
 }
 
 func normalizeInterests(items []string) []string {
@@ -849,6 +956,33 @@ func normalizeInterests(items []string) []string {
 		return []string{"聊天"}
 	}
 	return out
+}
+
+func normalizeRegion(value string) string {
+	switch strings.TrimSpace(value) {
+	case "nearby", "asia", "europe", "america":
+		return strings.TrimSpace(value)
+	default:
+		return "global"
+	}
+}
+
+func normalizeGenderPreference(value string) string {
+	switch strings.TrimSpace(value) {
+	case "female", "male":
+		return strings.TrimSpace(value)
+	default:
+		return "everyone"
+	}
+}
+
+func normalizeProfileGender(value string) string {
+	switch strings.TrimSpace(value) {
+	case "female", "male":
+		return strings.TrimSpace(value)
+	default:
+		return "private"
+	}
 }
 
 func defaultAvatarURL() string {

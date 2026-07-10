@@ -27,12 +27,17 @@ class MatchController extends GetxController {
 
   final page = AppPage.video.obs;
   final status = MatchStatus.idle.obs;
+  final matchMode = MatchModePreference.video.obs;
+  final genderPreference = GenderPreference.everyone.obs;
+  final selectedRegion = 'global'.obs;
+  final profileGender = 'private'.obs;
   final loading = false.obs;
   final leaving = false.obs;
   final savingProfile = false.obs;
   final paymentLoading = false.obs;
   final safetyLoading = false.obs;
   final blockedLoading = false.obs;
+  final discoverLoading = false.obs;
   final chatOpen = false.obs;
   final peerCardHidden = false.obs;
   final ageConfirmed = false.obs;
@@ -43,6 +48,7 @@ class MatchController extends GetxController {
   final peerProfile = Rxn<UserProfile>();
   final commerceStatus = Rxn<CommerceStatus>();
   final blockedUsers = <BlockedUser>[].obs;
+  final discoverProfiles = <UserProfile>[].obs;
   final messages = <ChatMessage>[].obs;
 
   String? activePeerId;
@@ -172,6 +178,8 @@ class MatchController extends GetxController {
     displayNameInput.text = next.displayName;
     bioInput.text = next.bio;
     ageConfirmed.value = next.ageConfirmed;
+    selectedRegion.value = next.region;
+    profileGender.value = next.gender.isEmpty ? 'private' : next.gender;
     interestsInput.text =
         (next.interests.isEmpty ? ['聊天', '电影', '音乐'] : next.interests)
             .join(', ');
@@ -198,6 +206,8 @@ class MatchController extends GetxController {
         bio: bioInput.text.trim(),
         interests: parsedInterests(),
         ageConfirmed: ageConfirmed.value,
+        region: selectedRegion.value,
+        gender: profileGenderValue,
       );
       setProfile(next);
       Get.snackbar('资料已保存', '新的匿名身份已更新', snackPosition: SnackPosition.BOTTOM);
@@ -219,7 +229,11 @@ class MatchController extends GetxController {
       await ensureAuth();
       await openMedia();
       openSocket();
-      final result = await api.joinMatch();
+      final result = await api.joinMatch(
+        mode: matchModeValue,
+        region: selectedRegion.value,
+        gender: genderPreferenceValue,
+      );
       status.value = result.status;
       if (result.status == MatchStatus.matched) {
         activeRoomId = result.roomId;
@@ -265,12 +279,14 @@ class MatchController extends GetxController {
         'noiseSuppression': true,
         'autoGainControl': true,
       },
-      'video': {
-        'width': 480,
-        'height': 640,
-        'frameRate': 15,
-        'facingMode': 'user',
-      },
+      'video': matchMode.value == MatchModePreference.video
+          ? {
+              'width': 480,
+              'height': 640,
+              'frameRate': 15,
+              'facingMode': 'user',
+            }
+          : false,
     });
     localRenderer.srcObject = _localStream;
   }
@@ -540,6 +556,34 @@ class MatchController extends GetxController {
     }
   }
 
+  Future<void> loadDiscoverProfiles() async {
+    discoverLoading.value = true;
+    try {
+      await ensureAuth();
+      discoverProfiles.assignAll(await api.fetchDiscoverProfiles(
+        region: selectedRegion.value,
+        gender: genderPreferenceValue,
+      ));
+    } catch (error) {
+      showError(error);
+    } finally {
+      discoverLoading.value = false;
+    }
+  }
+
+  Future<void> startFromProfile(UserProfile user) async {
+    peerProfile.value = user;
+    selectedRegion.value = user.region;
+    final gender = user.gender;
+    if (gender == 'female') {
+      genderPreference.value = GenderPreference.female;
+    } else if (gender == 'male') {
+      genderPreference.value = GenderPreference.male;
+    }
+    page.value = AppPage.video;
+    await startMatch();
+  }
+
   Future<void> buyMembership() async {
     if (paymentLoading.value || commerceStatus.value?.isMember == true) return;
     paymentLoading.value = true;
@@ -628,8 +672,51 @@ class MatchController extends GetxController {
   void switchPage(AppPage next) {
     page.value = next;
     if (next != AppPage.video) chatOpen.value = false;
+    if (next == AppPage.discover) unawaited(loadDiscoverProfiles());
     if (next == AppPage.profile) unawaited(loadBlockedUsers());
     if (next == AppPage.membership) unawaited(loadCommerceStatus());
+  }
+
+  String get matchModeValue =>
+      matchMode.value == MatchModePreference.voice ? 'voice' : 'video';
+
+  String get genderPreferenceValue {
+    switch (genderPreference.value) {
+      case GenderPreference.female:
+        return 'female';
+      case GenderPreference.male:
+        return 'male';
+      case GenderPreference.everyone:
+        return 'everyone';
+    }
+  }
+
+  String get profileGenderValue => profileGender.value;
+
+  String regionLabel(String value) {
+    switch (value) {
+      case 'nearby':
+        return '附近';
+      case 'asia':
+        return '亚洲';
+      case 'europe':
+        return '欧洲';
+      case 'america':
+        return '美洲';
+      default:
+        return '全球';
+    }
+  }
+
+  String get genderPreferenceLabel {
+    switch (genderPreference.value) {
+      case GenderPreference.female:
+        return '女生';
+      case GenderPreference.male:
+        return '男生';
+      case GenderPreference.everyone:
+        return '不限';
+    }
   }
 
   void showError(Object error) {

@@ -8,6 +8,9 @@ type User struct {
 	AvatarURL           string     `bson:"avatarUrl" json:"avatarUrl"`
 	Bio                 string     `bson:"bio,omitempty" json:"bio,omitempty"`
 	Interests           []string   `bson:"interests,omitempty" json:"interests,omitempty"`
+	Region              string     `bson:"region,omitempty" json:"region,omitempty"`
+	Gender              string     `bson:"gender,omitempty" json:"gender,omitempty"`
+	GemsBalance         int        `bson:"gemsBalance,omitempty" json:"gemsBalance,omitempty"`
 	AgeConfirmed        bool       `bson:"ageConfirmed" json:"ageConfirmed"`
 	MembershipPlan      string     `bson:"membershipPlan,omitempty" json:"membershipPlan,omitempty"`
 	MembershipExpiresAt *time.Time `bson:"membershipExpiresAt,omitempty" json:"membershipExpiresAt,omitempty"`
@@ -22,6 +25,9 @@ type UserProfile struct {
 	AvatarURL           string     `bson:"avatarUrl" json:"avatarUrl"`
 	Bio                 string     `bson:"bio,omitempty" json:"bio,omitempty"`
 	Interests           []string   `bson:"interests,omitempty" json:"interests,omitempty"`
+	Region              string     `bson:"region,omitempty" json:"region,omitempty"`
+	Gender              string     `bson:"gender,omitempty" json:"gender,omitempty"`
+	TrustBadge          bool       `bson:"-" json:"trustBadge"`
 	AgeConfirmed        bool       `bson:"ageConfirmed" json:"ageConfirmed"`
 	MembershipPlan      string     `bson:"membershipPlan,omitempty" json:"membershipPlan,omitempty"`
 	MembershipExpiresAt *time.Time `bson:"membershipExpiresAt,omitempty" json:"membershipExpiresAt,omitempty"`
