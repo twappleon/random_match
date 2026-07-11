@@ -270,25 +270,46 @@
           </button>
         </section>
 
+        <section class="membership-status" aria-label="membership status">
+          <div class="membership-status-head">
+            <div>
+              <strong>{{ membershipStatusTitle }}</strong>
+              <span>{{ membershipStatusText }}</span>
+            </div>
+            <button type="button" :disabled="paymentLoading" @click="loadCommerceStatus">
+              {{ paymentLoading ? '同步中' : '同步状态' }}
+            </button>
+          </div>
+          <div class="quota-track" aria-hidden="true">
+            <span :style="{ width: quotaProgress }"></span>
+          </div>
+          <div class="status-pills">
+            <span><small>匹配额度</small><b>{{ quotaLabel }}</b></span>
+            <span><small>Gems</small><b>{{ commerceStatus?.gemsBalance ?? 0 }}</b></span>
+            <span><small>优先队列</small><b>{{ commerceStatus?.priorityQueue ? '已开启' : '未开启' }}</b></span>
+            <span v-if="commerceStatus?.membershipExpiresAt"><small>到期日</small><b>{{ formatDate(commerceStatus.membershipExpiresAt) }}</b></span>
+          </div>
+        </section>
+
         <section class="pass-grid" aria-label="membership packages">
           <button class="pass-card" type="button" :disabled="paymentLoading || commerceStatus?.isMember" @click="buyMembership">
             <span class="pass-gem">◆</span>
             <strong>月度会员</strong>
-            <small>无限匹配</small>
-            <b>$6.99</b>
+            <small>30 天会员权益，可续期叠加</small>
+            <b>{{ commerceStatus?.isMember ? '已拥有' : '$6.99' }}</b>
           </button>
           <button class="pass-card featured" type="button" :disabled="paymentLoading || commerceStatus?.isMember" @click="buyMembership">
             <span class="pass-ribbon">推荐</span>
             <span class="pass-gem">◆</span>
             <strong>优先通行</strong>
-            <small>无限匹配 + 优先队列</small>
-            <b>$6.99/月</b>
+            <small>无限匹配 + 优先队列 + 300 Gems</small>
+            <b>{{ commerceStatus?.isMember ? '已开通' : '$6.99/月' }}</b>
           </button>
           <button class="pass-card" type="button" :disabled="paymentLoading || commerceStatus?.isMember" @click="buyMembership">
             <span class="pass-gem pink">◆</span>
             <strong>畅聊模式</strong>
             <small>额度用完后继续使用</small>
-            <b>会员包含</b>
+            <b>{{ commerceStatus?.isMember ? '已包含' : '会员包含' }}</b>
           </button>
         </section>
 
@@ -494,6 +515,26 @@ const membershipText = computed(() => {
 const paymentButtonText = computed(() => {
   if (commerceStatus.value?.isMember) return '已是会员'
   return paymentLoading.value ? '开通中' : '$6.99/月 开通'
+})
+const membershipStatusTitle = computed(() => commerceStatus.value?.isMember ? '当前权益：Match Pass' : '当前权益：免费账户')
+const membershipStatusText = computed(() => {
+  const status = commerceStatus.value
+  if (!status) return '正在同步会员、Gems 和今日额度'
+  if (status.isMember) return '无限匹配、优先队列和精准筛选已开启'
+  return '免费账户保留基础随机匹配，开通后解除每日次数限制'
+})
+const quotaLabel = computed(() => {
+  const status = commerceStatus.value
+  if (!status) return '同步中'
+  if (status.isMember) return '无限匹配'
+  return `剩余 ${status.dailyRemaining}/${status.dailyLimit} 次`
+})
+const quotaProgress = computed(() => {
+  const status = commerceStatus.value
+  if (!status) return '0%'
+  if (status.isMember || status.dailyLimit <= 0) return '100%'
+  const used = Math.max(0, Math.min(status.dailyUsed, status.dailyLimit))
+  return `${(used / status.dailyLimit) * 100}%`
 })
 const canSendChat = computed(() => status.value === 'matched' && Boolean(activePeerId.value) && chatDraft.value.trim().length > 0)
 const canUseChat = computed(() => status.value === 'matched' && Boolean(activePeerId.value))

@@ -101,7 +101,7 @@ class _FollowedSection extends GetView<MatchController> {
           ),
           const SizedBox(height: 8),
           SizedBox(
-            height: 96,
+            height: 112,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: users.length,
@@ -138,14 +138,21 @@ class _FollowedSection extends GetView<MatchController> {
                           name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w900),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            height: 1.05,
+                          ),
                         ),
+                        const SizedBox(height: 2),
                         Text(
                           user.interests.take(2).join(' · '),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              color: Colors.white70, fontSize: 12),
+                            color: Colors.white70,
+                            fontSize: 11,
+                            height: 1.05,
+                          ),
                         ),
                       ],
                     ),

@@ -762,15 +762,16 @@ class MatchController extends GetxController {
     }
   }
 
-  Future<void> buyMembership() async {
+  Future<void> buyMembership({String plan = 'premium_monthly'}) async {
     if (paymentLoading.value || commerceStatus.value?.isMember == true) return;
     paymentLoading.value = true;
     try {
       await ensureAuth();
-      final order = await api.createPaymentOrder();
+      final order = await api.createPaymentOrder(plan: plan);
       await api.confirmPaymentOrder(order.id);
       await loadCommerceStatus();
-      Get.snackbar('会员已开通', '可无限匹配并优先排队', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('会员已开通', '已加入优先队列，并赠送 300 Gems',
+          snackPosition: SnackPosition.BOTTOM);
     } catch (error) {
       showError(error);
     } finally {

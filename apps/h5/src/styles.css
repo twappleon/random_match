@@ -506,6 +506,7 @@ button {
 }
 
 .membership-hero,
+.membership-status,
 .pass-card,
 .benefits,
 .payment-note {
@@ -606,6 +607,91 @@ button {
   color: #04110d;
   font-weight: 950;
   box-shadow: 0 0 22px rgba(0, 255, 195, 0.34);
+}
+
+.membership-status {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.membership-status-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.membership-status-head div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.membership-status-head strong {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 950;
+}
+
+.membership-status-head span {
+  color: rgba(246, 248, 251, 0.62);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.membership-status-head button {
+  min-height: 34px;
+  flex: 0 0 auto;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.quota-track {
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.quota-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7c5cff, #00d2ff, #00ffc3);
+  transition: width 0.24s ease;
+}
+
+.status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.status-pills span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.status-pills small {
+  color: rgba(246, 248, 251, 0.56);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.status-pills b {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 950;
 }
 
 .pass-grid {

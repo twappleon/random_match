@@ -121,10 +121,12 @@ class RandomMatchApi {
     return CommerceStatus.fromJson(res.data ?? {});
   }
 
-  Future<PaymentOrder> createPaymentOrder() async {
+  Future<PaymentOrder> createPaymentOrder({
+    String plan = 'premium_monthly',
+  }) async {
     final res = await _dio.post<Map<String, dynamic>>(
       '/api/v1/commerce/orders',
-      data: {'plan': 'premium_monthly'},
+      data: {'plan': plan},
       options: _authOptions,
     );
     return PaymentOrder.fromJson(

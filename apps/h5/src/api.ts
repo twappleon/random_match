@@ -176,6 +176,7 @@ export interface CommerceStatus {
   dailyUsed: number
   dailyRemaining: number
   priorityQueue: boolean
+  gemsBalance: number
 }
 
 export interface PaymentOrder {

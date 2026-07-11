@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../controllers/match_controller.dart';
+import '../data/models.dart';
 
 const _surface = Color(0xff111723);
 const _surfaceSoft = Color(0xff18202f);
@@ -43,27 +44,39 @@ class MembershipPage extends GetView<MatchController> {
               onPressed: canBuy ? controller.buyMembership : null,
             ),
             const SizedBox(height: 12),
+            _AccountStatusCard(
+              status: status,
+              loading: controller.paymentLoading.value,
+              onRefresh: controller.loadCommerceStatus,
+            ),
+            const SizedBox(height: 12),
             _PassCard(
               title: '优先通行',
-              subtitle: '无限匹配 + 优先队列',
-              price: r'$6.99/月',
+              subtitle: '无限匹配 + 优先队列 + 300 Gems',
+              price: isMember ? '已开通' : r'$6.99/月',
               featured: true,
-              onPressed: canBuy ? controller.buyMembership : null,
+              onPressed: canBuy
+                  ? () => controller.buyMembership(plan: 'premium_monthly')
+                  : null,
             ),
             const SizedBox(height: 10),
             _PassCard(
               title: '月度会员',
-              subtitle: '无限匹配',
-              price: r'$6.99',
-              onPressed: canBuy ? controller.buyMembership : null,
+              subtitle: '30 天会员权益，可续期叠加',
+              price: isMember ? '已拥有' : r'$6.99',
+              onPressed: canBuy
+                  ? () => controller.buyMembership(plan: 'premium_monthly')
+                  : null,
             ),
             const SizedBox(height: 10),
             _PassCard(
               title: '畅聊模式',
-              subtitle: '额度用完后继续使用',
-              price: '会员包含',
+              subtitle: '免费额度用完后仍可继续匹配',
+              price: isMember ? '已包含' : '会员包含',
               gemColor: _pink,
-              onPressed: canBuy ? controller.buyMembership : null,
+              onPressed: canBuy
+                  ? () => controller.buyMembership(plan: 'premium_monthly')
+                  : null,
             ),
             const SizedBox(height: 12),
             const _BenefitGrid(),
@@ -301,6 +314,140 @@ class _PassCard extends StatelessWidget {
   }
 }
 
+class _AccountStatusCard extends StatelessWidget {
+  const _AccountStatusCard({
+    required this.status,
+    required this.loading,
+    required this.onRefresh,
+  });
+
+  final CommerceStatus? status;
+  final bool loading;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final isMember = status?.isMember == true;
+    final dailyLimit = status?.dailyLimit ?? 10;
+    final dailyUsed = status?.dailyUsed ?? 0;
+    final dailyRemaining = status?.dailyRemaining ?? dailyLimit;
+    final gemsBalance = status?.gemsBalance ?? 0;
+    final expiresAt = status?.membershipExpiresAt;
+    final progress = isMember || dailyLimit <= 0
+        ? 1.0
+        : (dailyUsed / dailyLimit).clamp(0.0, 1.0);
+    final quotaText = isMember
+        ? '无限匹配'
+        : '今日剩余 $dailyRemaining/$dailyLimit 次';
+
+    return _GlassPanel(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isMember
+                    ? Icons.verified_rounded
+                    : Icons.local_activity_rounded,
+                color: isMember ? _neon : _cyan,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isMember ? '当前权益：Match Pass' : '当前权益：免费账户',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: loading ? null : onRefresh,
+                child: Text(loading ? '同步中' : '同步状态'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+              backgroundColor: Colors.white.withValues(alpha: 0.08),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isMember ? _neon : _cyan,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _StatusPill(label: '匹配额度', value: quotaText),
+              _StatusPill(label: 'Gems', value: '$gemsBalance'),
+              _StatusPill(
+                label: '优先队列',
+                value: isMember ? '已开启' : '未开启',
+              ),
+              if (expiresAt != null)
+                _StatusPill(label: '到期日', value: _formatDate(expiresAt)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$label ',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.55),
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _BenefitGrid extends StatelessWidget {
   const _BenefitGrid();
 
@@ -328,6 +475,11 @@ class _BenefitGrid extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatDate(DateTime value) {
+  final local = value.toLocal();
+  return '${local.year}/${local.month.toString().padLeft(2, '0')}/${local.day.toString().padLeft(2, '0')}';
 }
 
 class _BenefitTile extends StatelessWidget {
