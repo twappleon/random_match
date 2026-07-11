@@ -5,7 +5,7 @@ function apiBase() {
   return window.location.origin
 }
 
-export type MatchMode = 'video'
+export type MatchMode = 'video' | 'voice'
 
 export interface AuthResponse {
   token: string
@@ -18,6 +18,10 @@ export interface UserProfile {
   avatarUrl: string
   bio?: string
   interests?: string[]
+  region?: string
+  gender?: string
+  language?: string
+  trustBadge?: boolean
   ageConfirmed: boolean
   membershipPlan?: string
   membershipExpiresAt?: string
@@ -70,6 +74,7 @@ export async function updateProfile(token: string, payload: {
   displayName: string
   bio: string
   interests: string[]
+  language: string
   ageConfirmed: boolean
 }): Promise<UserProfile> {
   const res = await fetch(`${apiBase()}/api/v1/me`, {
@@ -85,14 +90,20 @@ export async function updateProfile(token: string, payload: {
   return data.user
 }
 
-export async function joinMatch(token: string, mode: MatchMode, region = 'global'): Promise<MatchResponse> {
+export async function joinMatch(token: string, payload: {
+  mode: MatchMode
+  region?: string
+  gender?: string
+  language?: string
+  interests?: string[]
+}): Promise<MatchResponse> {
   const res = await fetch(`${apiBase()}/api/v1/match/join`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ mode, region })
+    body: JSON.stringify(payload)
   })
   if (res.status === 402) {
     const payload = await res.json().catch(() => null)
@@ -102,6 +113,59 @@ export async function joinMatch(token: string, mode: MatchMode, region = 'global
   if (res.status === 409) throw new Error('已跳过拉黑用户，请再点一次随机匹配')
   if (!res.ok && res.status !== 202) throw new Error('加入匹配失败，请稍后重试')
   return res.json()
+}
+
+export async function fetchDiscoverProfiles(token: string, payload: {
+  region: string
+  gender: string
+}): Promise<UserProfile[]> {
+  const params = new URLSearchParams({
+    region: payload.region,
+    gender: payload.gender
+  })
+  const res = await fetch(`${apiBase()}/api/v1/discover/profiles?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error('读取 Lounge 列表失败')
+  const data = await res.json()
+  return Array.isArray(data.users) ? data.users : []
+}
+
+export async function fetchFollowedUsers(token: string): Promise<UserProfile[]> {
+  const res = await fetch(`${apiBase()}/api/v1/users/follows`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error('读取关注列表失败')
+  const data = await res.json()
+  return Array.isArray(data.users) ? data.users : []
+}
+
+export async function followUser(token: string, userId: string): Promise<void> {
+  const res = await fetch(`${apiBase()}/api/v1/users/${encodeURIComponent(userId)}/follow`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error('关注失败')
+}
+
+export async function unfollowUser(token: string, userId: string): Promise<void> {
+  const res = await fetch(`${apiBase()}/api/v1/users/${encodeURIComponent(userId)}/follow`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error('取消关注失败')
+}
+
+export async function sendDirectMessage(token: string, userId: string, text: string): Promise<void> {
+  const res = await fetch(`${apiBase()}/api/v1/users/${encodeURIComponent(userId)}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ text })
+  })
+  if (!res.ok) throw new Error('私信发送失败')
 }
 
 export interface CommerceStatus {

@@ -6,6 +6,8 @@ enum MatchModePreference { video, voice }
 
 enum GenderPreference { everyone, female, male }
 
+enum TranslationLanguage { off, zh, en, ja, ko, es }
+
 enum ChatSender { self, peer }
 
 class UserProfile {
@@ -18,6 +20,7 @@ class UserProfile {
     this.interests = const [],
     this.region = 'global',
     this.gender = '',
+    this.language = 'zh',
     this.trustBadge = false,
     this.membershipPlan = '',
     this.membershipExpiresAt,
@@ -32,6 +35,7 @@ class UserProfile {
   final List<String> interests;
   final String region;
   final String gender;
+  final String language;
   final bool trustBadge;
   final String membershipPlan;
   final DateTime? membershipExpiresAt;
@@ -50,6 +54,7 @@ class UserProfile {
           .toList(),
       region: json['region'] as String? ?? 'global',
       gender: json['gender'] as String? ?? '',
+      language: json['language'] as String? ?? 'zh',
       trustBadge: json['trustBadge'] == true,
       membershipPlan: json['membershipPlan'] as String? ?? '',
       membershipExpiresAt: DateTime.tryParse(

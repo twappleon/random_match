@@ -2,14 +2,53 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../controllers/match_controller.dart';
+import '../data/models.dart';
 
-class ProfilePage extends GetView<MatchController> {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  final _scrollController = ScrollController();
+  final _ageKey = GlobalKey();
+  late final MatchController controller;
+  Worker? _agePromptWorker;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = Get.find<MatchController>();
+    _agePromptWorker = ever<int>(controller.agePromptRevision, (_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToAgeCheck());
+    });
+  }
+
+  @override
+  void dispose() {
+    _agePromptWorker?.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToAgeCheck() {
+    final context = _ageKey.currentContext;
+    if (context == null) return;
+    Scrollable.ensureVisible(
+      context,
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutCubic,
+      alignment: 0.36,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: ListView(
+        controller: _scrollController,
         padding: const EdgeInsets.all(16),
         children: [
           _Panel(
@@ -39,6 +78,8 @@ class ProfilePage extends GetView<MatchController> {
                   controller: controller.interestsInput,
                   decoration: const InputDecoration(labelText: '兴趣标签'),
                 ),
+                const SizedBox(height: 10),
+                const _InterestPicker(),
                 const SizedBox(height: 10),
                 Obx(() => DropdownButtonFormField<String>(
                       key: ValueKey(
@@ -81,22 +122,78 @@ class ProfilePage extends GetView<MatchController> {
                         }
                       },
                     )),
-                const SizedBox(height: 8),
-                Obx(() => CheckboxListTile(
-                      value: controller.ageConfirmed.value,
-                      onChanged: (value) =>
-                          controller.ageConfirmed.value = value ?? false,
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('我已满 18 岁并同意文明视讯'),
+                const SizedBox(height: 10),
+                Obx(() => DropdownButtonFormField<String>(
+                      key: ValueKey(
+                          'profile-language-${controller.profileLanguage.value}'),
+                      initialValue: controller.profileLanguage.value,
+                      decoration: const InputDecoration(
+                        labelText: '常用语言',
+                        prefixIcon: Icon(Icons.translate_rounded),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'zh', child: Text('中文')),
+                        DropdownMenuItem(value: 'en', child: Text('English')),
+                        DropdownMenuItem(value: 'ja', child: Text('日本語')),
+                        DropdownMenuItem(value: 'ko', child: Text('한국어')),
+                        DropdownMenuItem(value: 'es', child: Text('Español')),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          controller.profileLanguage.value = value;
+                        }
+                      },
                     )),
                 const SizedBox(height: 8),
-                Obx(() => FilledButton(
-                      onPressed: controller.savingProfile.value
-                          ? null
-                          : controller.saveProfile,
-                      child:
-                          Text(controller.savingProfile.value ? '保存中' : '保存资料'),
+                Obx(() => AnimatedContainer(
+                      key: _ageKey,
+                      duration: const Duration(milliseconds: 220),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: controller.ageConfirmed.value
+                              ? Colors.transparent
+                              : const Color(0xffffc857).withValues(alpha: 0.45),
+                        ),
+                        color: controller.ageConfirmed.value
+                            ? Colors.transparent
+                            : const Color(0xffffc857).withValues(alpha: 0.08),
+                      ),
+                      child: CheckboxListTile(
+                        value: controller.ageConfirmed.value,
+                        onChanged: (value) =>
+                            controller.ageConfirmed.value = value ?? false,
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 8),
+                        title: const Text('我已满 18 岁并同意文明视讯'),
+                      ),
                     )),
+                const SizedBox(height: 8),
+                Obx(() {
+                  final saving = controller.savingProfile.value;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      FilledButton(
+                        onPressed: saving ? null : controller.saveProfile,
+                        child: Text(saving ? '保存中' : '保存资料'),
+                      ),
+                      if (controller.ageConfirmed.value) ...[
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: saving
+                              ? null
+                              : () async {
+                                  await controller.saveProfile();
+                                  controller.switchPage(AppPage.video);
+                                },
+                          icon: const Icon(Icons.videocam_outlined),
+                          label: const Text('保存并返回视讯'),
+                        ),
+                      ],
+                    ],
+                  );
+                }),
               ],
             ),
           ),
@@ -178,6 +275,42 @@ class ProfilePage extends GetView<MatchController> {
         ],
       ),
     );
+  }
+}
+
+class _InterestPicker extends GetView<MatchController> {
+  const _InterestPicker();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      controller.interestsRevision.value;
+      final selected = controller.parsedInterests();
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: interestSuggestions.map((item) {
+          final active = selected.contains(item);
+          return FilterChip(
+            selected: active,
+            label: Text(item),
+            onSelected: (_) => controller.toggleInterest(item),
+            selectedColor: const Color(0xff20c8ff).withValues(alpha: 0.22),
+            checkmarkColor: const Color(0xff20c8ff),
+            side: BorderSide(
+              color: active
+                  ? const Color(0xff20c8ff).withValues(alpha: 0.55)
+                  : Colors.white.withValues(alpha: 0.14),
+            ),
+            labelStyle: TextStyle(
+              color:
+                  active ? Colors.white : Colors.white.withValues(alpha: 0.78),
+              fontWeight: FontWeight.w800,
+            ),
+          );
+        }).toList(),
+      );
+    });
   }
 }
 

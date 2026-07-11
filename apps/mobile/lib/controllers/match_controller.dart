@@ -12,6 +12,27 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../data/models.dart';
 import '../data/random_match_api.dart';
 
+const defaultInterests = ['聊天', '电影', '音乐'];
+const interestSuggestions = [
+  '聊天',
+  '电影',
+  '音乐',
+  '旅行',
+  '美食',
+  '运动',
+  '游戏',
+  '动漫',
+  '摄影',
+  '宠物',
+  '读书',
+  '咖啡',
+  '健身',
+  '语言交换',
+  '科技',
+  '深夜电台',
+];
+const languageOptions = ['zh', 'en', 'ja', 'ko', 'es'];
+
 class MatchController extends GetxController {
   MatchController({RandomMatchApi? api}) : api = api ?? RandomMatchApi();
 
@@ -23,14 +44,18 @@ class MatchController extends GetxController {
   final chatScroll = ScrollController();
   final displayNameInput = TextEditingController(text: '星球旅人');
   final bioInput = TextEditingController();
-  final interestsInput = TextEditingController(text: '聊天, 电影, 音乐');
+  final interestsInput =
+      TextEditingController(text: defaultInterests.join(', '));
 
   final page = AppPage.video.obs;
   final status = MatchStatus.idle.obs;
   final matchMode = MatchModePreference.video.obs;
   final genderPreference = GenderPreference.everyone.obs;
+  final translationLanguage = TranslationLanguage.zh.obs;
   final selectedRegion = 'global'.obs;
   final profileGender = 'private'.obs;
+  final profileLanguage = 'zh'.obs;
+  final interestsRevision = 0.obs;
   final loading = false.obs;
   final leaving = false.obs;
   final savingProfile = false.obs;
@@ -39,8 +64,11 @@ class MatchController extends GetxController {
   final blockedLoading = false.obs;
   final discoverLoading = false.obs;
   final chatOpen = false.obs;
+  final controlsExpanded = false.obs;
+  final controlsVisible = false.obs;
   final peerCardHidden = false.obs;
   final ageConfirmed = false.obs;
+  final agePromptRevision = 0.obs;
   final remoteVideoTick = 0.obs;
 
   final stats = const RuntimeStats(online: 0, waiting: 0, chatting: 0).obs;
@@ -49,6 +77,8 @@ class MatchController extends GetxController {
   final commerceStatus = Rxn<CommerceStatus>();
   final blockedUsers = <BlockedUser>[].obs;
   final discoverProfiles = <UserProfile>[].obs;
+  final followedUsers = <UserProfile>[].obs;
+  final followedUserIds = <String>{}.obs;
   final messages = <ChatMessage>[].obs;
 
   String? activePeerId;
@@ -68,6 +98,7 @@ class MatchController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    interestsInput.addListener(() => interestsRevision.value++);
     unawaited(_init());
   }
 
@@ -180,9 +211,10 @@ class MatchController extends GetxController {
     ageConfirmed.value = next.ageConfirmed;
     selectedRegion.value = next.region;
     profileGender.value = next.gender.isEmpty ? 'private' : next.gender;
+    profileLanguage.value =
+        languageOptions.contains(next.language) ? next.language : 'zh';
     interestsInput.text =
-        (next.interests.isEmpty ? ['聊天', '电影', '音乐'] : next.interests)
-            .join(', ');
+        (next.interests.isEmpty ? defaultInterests : next.interests).join(', ');
   }
 
   List<String> parsedInterests() {
@@ -193,6 +225,21 @@ class MatchController extends GetxController {
         .where((item) => item.isNotEmpty && seen.add(item))
         .take(6)
         .toList();
+  }
+
+  bool hasInterest(String value) => parsedInterests().contains(value);
+
+  void toggleInterest(String value) {
+    final items = parsedInterests();
+    if (items.contains(value)) {
+      items.remove(value);
+    } else if (items.length < 6) {
+      items.add(value);
+    } else {
+      Get.snackbar('兴趣已满', '最多选择 6 个兴趣标签', snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+    interestsInput.text = items.join(', ');
   }
 
   Future<void> saveProfile() async {
@@ -208,6 +255,7 @@ class MatchController extends GetxController {
         ageConfirmed: ageConfirmed.value,
         region: selectedRegion.value,
         gender: profileGenderValue,
+        language: profileLanguage.value,
       );
       setProfile(next);
       Get.snackbar('资料已保存', '新的匿名身份已更新', snackPosition: SnackPosition.BOTTOM);
@@ -223,8 +271,17 @@ class MatchController extends GetxController {
     loading.value = true;
     try {
       page.value = AppPage.video;
+      controlsVisible.value = true;
+      controlsExpanded.value = false;
       resetCall();
-      if (!ageConfirmed.value) throw Exception('请先确认已满 18 岁并保存资料');
+      if (!ageConfirmed.value) {
+        showAgeConfirmationRequired();
+        return;
+      }
+      if (premiumFiltersActive && !hasPremiumAccess) {
+        page.value = AppPage.membership;
+        throw Exception('精准筛选需要 Gems 或 Premium');
+      }
       await saveProfile();
       await ensureAuth();
       await openMedia();
@@ -233,6 +290,8 @@ class MatchController extends GetxController {
         mode: matchModeValue,
         region: selectedRegion.value,
         gender: genderPreferenceValue,
+        language: profileLanguage.value,
+        interests: parsedInterests(),
       );
       status.value = result.status;
       if (result.status == MatchStatus.matched) {
@@ -240,18 +299,41 @@ class MatchController extends GetxController {
         activePeerId = result.peerId;
         peerProfile.value = result.peerProfile;
         peerCardHidden.value = false;
+        controlsExpanded.value = false;
+        controlsVisible.value = false;
         if (result.initiator && result.peerId != null) {
           await createPeer(result.peerId!);
         }
+      } else {
+        controlsVisible.value = true;
       }
       await loadCommerceStatus();
       await refreshStats();
     } catch (error) {
+      loading.value = false;
+      leaving.value = false;
+      status.value = MatchStatus.idle;
+      controlsVisible.value = true;
+      controlsExpanded.value = false;
+      chatOpen.value = false;
       showError(error);
-      await loadCommerceStatus();
+      unawaited(loadCommerceStatus());
     } finally {
       loading.value = false;
     }
+  }
+
+  void showAgeConfirmationRequired() {
+    loading.value = false;
+    leaving.value = false;
+    status.value = MatchStatus.idle;
+    controlsVisible.value = true;
+    controlsExpanded.value = false;
+    chatOpen.value = false;
+    page.value = AppPage.profile;
+    agePromptRevision.value++;
+    Get.snackbar('请先确认年龄', '勾选已满 18 岁并保存资料后即可开始匹配',
+        snackPosition: SnackPosition.BOTTOM);
   }
 
   Future<void> leaveCall() async {
@@ -265,6 +347,8 @@ class MatchController extends GetxController {
       closeSocket();
       stopMedia();
       resetCall();
+      controlsVisible.value = true;
+      controlsExpanded.value = false;
       leaving.value = false;
       await refreshStats();
     }
@@ -465,7 +549,11 @@ class MatchController extends GetxController {
 
   void toggleChat() {
     chatOpen.toggle();
-    if (chatOpen.value) scrollChatToBottom();
+    if (chatOpen.value) {
+      controlsExpanded.value = false;
+      controlsVisible.value = false;
+      scrollChatToBottom();
+    }
   }
 
   void sendChatMessage() {
@@ -560,10 +648,18 @@ class MatchController extends GetxController {
     discoverLoading.value = true;
     try {
       await ensureAuth();
-      discoverProfiles.assignAll(await api.fetchDiscoverProfiles(
-        region: selectedRegion.value,
-        gender: genderPreferenceValue,
-      ));
+      final results = await Future.wait([
+        api.fetchDiscoverProfiles(
+          region: selectedRegion.value,
+          gender: genderPreferenceValue,
+        ),
+        api.fetchFollowedUsers(),
+      ]);
+      discoverProfiles.assignAll(results[0]);
+      followedUsers.assignAll(results[1]);
+      followedUserIds
+        ..clear()
+        ..addAll(results[1].map((user) => user.id));
     } catch (error) {
       showError(error);
     } finally {
@@ -574,6 +670,11 @@ class MatchController extends GetxController {
   Future<void> startFromProfile(UserProfile user) async {
     peerProfile.value = user;
     selectedRegion.value = user.region;
+    profileLanguage.value =
+        languageOptions.contains(user.language) ? user.language : 'zh';
+    if (user.interests.isNotEmpty) {
+      interestsInput.text = user.interests.take(6).join(', ');
+    }
     final gender = user.gender;
     if (gender == 'female') {
       genderPreference.value = GenderPreference.female;
@@ -582,6 +683,79 @@ class MatchController extends GetxController {
     }
     page.value = AppPage.video;
     await startMatch();
+  }
+
+  void dismissDiscoverProfile(UserProfile user) {
+    discoverProfiles.removeWhere((item) => item.id == user.id);
+    if (discoverProfiles.isEmpty) {
+      unawaited(loadDiscoverProfiles());
+    }
+  }
+
+  Future<void> toggleFollow(UserProfile user) async {
+    try {
+      await ensureAuth();
+      if (followedUserIds.contains(user.id)) {
+        await api.unfollowUser(user.id);
+        followedUserIds.remove(user.id);
+        followedUsers.removeWhere((item) => item.id == user.id);
+        Get.snackbar('已取消关注', user.displayName,
+            snackPosition: SnackPosition.BOTTOM);
+        return;
+      }
+      await api.followUser(user.id);
+      followedUserIds.add(user.id);
+      if (!followedUsers.any((item) => item.id == user.id)) {
+        followedUsers.insert(0, user);
+      }
+      Get.snackbar('已关注', '${user.displayName} 已加入 Lounge 顶部的我的关注',
+          snackPosition: SnackPosition.BOTTOM);
+    } catch (error) {
+      showError(error);
+    }
+  }
+
+  Future<void> openDirectMessage(UserProfile user) async {
+    final input = TextEditingController();
+    try {
+      final sent = await Get.dialog<bool>(
+        AlertDialog(
+          title: Text('私信 ${user.displayName}'),
+          content: TextField(
+            controller: input,
+            maxLength: 240,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              hintText: '先打个招呼...',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(result: false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Get.back(result: true),
+              child: const Text('发送'),
+            ),
+          ],
+        ),
+      );
+      if (sent == true && input.text.trim().isNotEmpty) {
+        await ensureAuth();
+        await api.sendDirectMessage(
+          userId: user.id,
+          text: truncateText(input.text.trim(), 240),
+        );
+        Get.snackbar('私信已送出', '对方下次打开 Lounge 可接入收件箱',
+            snackPosition: SnackPosition.BOTTOM);
+      }
+    } catch (error) {
+      showError(error);
+    } finally {
+      input.dispose();
+    }
   }
 
   Future<void> buyMembership() async {
@@ -671,7 +845,16 @@ class MatchController extends GetxController {
 
   void switchPage(AppPage next) {
     page.value = next;
-    if (next != AppPage.video) chatOpen.value = false;
+    if (next != AppPage.video) {
+      chatOpen.value = false;
+      controlsExpanded.value = false;
+    }
+    if (next == AppPage.video && status.value != MatchStatus.matched) {
+      loading.value = false;
+      leaving.value = false;
+      controlsVisible.value = true;
+      controlsExpanded.value = false;
+    }
     if (next == AppPage.discover) unawaited(loadDiscoverProfiles());
     if (next == AppPage.profile) unawaited(loadBlockedUsers());
     if (next == AppPage.membership) unawaited(loadCommerceStatus());
@@ -717,6 +900,39 @@ class MatchController extends GetxController {
       case GenderPreference.everyone:
         return '不限';
     }
+  }
+
+  String get translationLanguageLabel {
+    switch (translationLanguage.value) {
+      case TranslationLanguage.off:
+        return '关闭';
+      case TranslationLanguage.zh:
+        return '中文';
+      case TranslationLanguage.en:
+        return 'English';
+      case TranslationLanguage.ja:
+        return '日本語';
+      case TranslationLanguage.ko:
+        return '한국어';
+      case TranslationLanguage.es:
+        return 'Español';
+    }
+  }
+
+  bool get premiumFiltersActive =>
+      selectedRegion.value != 'global' ||
+      genderPreference.value != GenderPreference.everyone;
+
+  bool get hasPremiumAccess =>
+      commerceStatus.value?.isMember == true ||
+      (commerceStatus.value?.gemsBalance ?? 0) > 0;
+
+  String translatedPreview(String value) {
+    if (translationLanguage.value == TranslationLanguage.off ||
+        value.trim().isEmpty) {
+      return '';
+    }
+    return '已翻译为 $translationLanguageLabel：$value';
   }
 
   void showError(Object error) {

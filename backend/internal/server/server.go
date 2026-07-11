@@ -63,9 +63,13 @@ func (s *Server) Routes() http.Handler {
 	auth.POST("/match/leave", s.leaveMatch)
 	auth.POST("/match/snapshot", s.saveMatchSnapshot)
 	auth.GET("/users/blocks", s.listBlockedUsers)
+	auth.GET("/users/follows", s.listFollowedUsers)
 	auth.POST("/users/:id/block", s.blockUser)
 	auth.DELETE("/users/:id/block", s.unblockUser)
 	auth.POST("/users/:id/report", s.reportUser)
+	auth.POST("/users/:id/follow", s.followUser)
+	auth.DELETE("/users/:id/follow", s.unfollowUser)
+	auth.POST("/users/:id/messages", s.sendDirectMessage)
 	auth.GET("/commerce/status", s.commerceStatus)
 	auth.POST("/commerce/orders", s.createPaymentOrder)
 	auth.POST("/commerce/orders/:id/confirm", s.confirmPaymentOrder)
@@ -113,13 +117,15 @@ func (s *Server) authSession(c *gin.Context) {
 //	@Router			/api/v1/auth/anonymous [post]
 func (s *Server) anonymousAuth(c *gin.Context) {
 	now := time.Now().UTC()
+	userID := newID()
 	user := model.User{
-		ID:           newID(),
-		DisplayName:  "星球旅人",
+		ID:           userID,
+		DisplayName:  defaultDisplayName(userID),
 		AvatarURL:    defaultAvatarURL(),
-		Interests:    []string{"聊天", "电影", "音乐"},
+		Interests:    defaultUserInterests(userID),
 		Region:       "global",
 		Gender:       "private",
+		Language:     "zh",
 		GemsBalance:  120,
 		AgeConfirmed: false,
 		CreatedAt:    now,
@@ -197,7 +203,7 @@ func (s *Server) updateProfile(c *gin.Context) {
 
 	displayName := strings.TrimSpace(req.DisplayName)
 	if displayName == "" {
-		displayName = "星球旅人"
+		displayName = defaultDisplayName(userID)
 	}
 	if len([]rune(displayName)) > 24 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "displayName is too long"})
@@ -211,6 +217,7 @@ func (s *Server) updateProfile(c *gin.Context) {
 	interests := normalizeInterests(req.Interests)
 	region := normalizeRegion(req.Region)
 	gender := normalizeProfileGender(req.Gender)
+	language := normalizeLanguage(req.Language)
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
@@ -220,6 +227,7 @@ func (s *Server) updateProfile(c *gin.Context) {
 		"interests":    interests,
 		"region":       region,
 		"gender":       gender,
+		"language":     language,
 		"ageConfirmed": req.AgeConfirmed,
 		"updatedAt":    time.Now().UTC(),
 	}})
@@ -360,8 +368,10 @@ func (s *Server) joinMatch(c *gin.Context) {
 	}
 	req.Region = normalizeRegion(req.Region)
 	req.Gender = normalizeGenderPreference(req.Gender)
+	req.Language = normalizeLanguage(req.Language)
+	requestedInterests := normalizeInterests(req.Interests)
 
-	queueKey := "match:queue:v2:" + string(req.Mode) + ":" + req.Region + ":" + req.Gender
+	queueKey := "match:queue:v3:" + string(req.Mode) + ":" + req.Region + ":" + req.Language
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
@@ -388,8 +398,22 @@ func (s *Server) joinMatch(c *gin.Context) {
 		return
 	}
 
-	self := model.MatchTicket{UserID: userID, Mode: req.Mode, Region: req.Region, CreatedAt: time.Now().UTC()}
-	result, err := enqueueAndMatch(ctx, s.cache.Client, queueKey, self, isMember)
+	self := model.MatchTicket{
+		UserID:           userID,
+		Mode:             req.Mode,
+		Region:           req.Region,
+		GenderPreference: req.Gender,
+		Language:         req.Language,
+		Interests:        requestedInterests,
+		CreatedAt:        time.Now().UTC(),
+	}
+	result, err := enqueueAndMatch(ctx, s.cache.Client, queueKey, self, isMember, func(candidateTicket model.MatchTicket) (bool, error) {
+		candidate, err := s.userByID(ctx, candidateTicket.UserID)
+		if err != nil {
+			return false, err
+		}
+		return compatibleMatch(user, self, candidate, candidateTicket), nil
+	})
 	if err != nil {
 		log.Printf("match join failed user_id=%s mode=%s region=%s err=%v", userID, req.Mode, req.Region, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
@@ -404,14 +428,9 @@ func (s *Server) joinMatch(c *gin.Context) {
 	partner := result.partner
 	if !s.hub.IsOnline(partner.UserID) {
 		log.Printf("match stale_partner user_id=%s peer_id=%s mode=%s region=%s", userID, partner.UserID, req.Mode, req.Region)
-		self = model.MatchTicket{UserID: userID, Mode: req.Mode, Region: req.Region, CreatedAt: time.Now().UTC()}
-		if err := s.cache.Client.RPush(ctx, queueForPriority(queueKey, isMember), self.UserID).Err(); err != nil {
+		self.CreatedAt = time.Now().UTC()
+		if err := queueTicket(ctx, s.cache.Client, queueKey, self, isMember); err != nil {
 			log.Printf("match requeue failed user_id=%s mode=%s region=%s err=%v", userID, req.Mode, req.Region, err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
-			return
-		}
-		if err := s.cache.Client.SAdd(ctx, queueKey+":members", self.UserID).Err(); err != nil {
-			log.Printf("match requeue member failed user_id=%s mode=%s region=%s err=%v", userID, req.Mode, req.Region, err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
 			return
 		}
@@ -430,11 +449,7 @@ func (s *Server) joinMatch(c *gin.Context) {
 		if partnerUser, err := s.userByID(ctx, partner.UserID); err == nil {
 			partnerPriority = isActiveMember(partnerUser, time.Now().UTC())
 		}
-		if err := s.cache.Client.RPush(ctx, queueForPriority(queueKey, partnerPriority), partner.UserID).Err(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
-			return
-		}
-		if err := s.cache.Client.SAdd(ctx, queueKey+":members", partner.UserID).Err(); err != nil {
+		if err := queueTicket(ctx, s.cache.Client, queueKey, partner, partnerPriority); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
 			return
 		}
@@ -662,6 +677,128 @@ func (s *Server) reportUser(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "reported"})
+}
+
+func (s *Server) followUser(c *gin.Context) {
+	userID := userIDFromContext(c)
+	targetID := strings.TrimSpace(c.Param("id"))
+	if targetID == "" || targetID == userID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid target"})
+		return
+	}
+	now := time.Now().UTC()
+	follow := model.UserFollow{
+		ID:        userID + ":" + targetID,
+		UserID:    userID,
+		FollowID:  targetID,
+		CreatedAt: now,
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+	if err := s.ensureUserExists(ctx, targetID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "target not found"})
+		return
+	}
+	if _, err := s.db.DB.Collection("user_follows").UpdateOne(ctx, bson.M{"_id": follow.ID}, bson.M{"$setOnInsert": follow}, updateUpsert()); err != nil {
+		log.Printf("user follow failed user_id=%s target_id=%s err=%v", userID, targetID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "follow failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "followed"})
+}
+
+func (s *Server) listFollowedUsers(c *gin.Context) {
+	userID := userIDFromContext(c)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+	cursor, err := s.db.DB.Collection("user_follows").Find(
+		ctx,
+		bson.M{"userId": userID},
+		options.Find().SetSort(bson.M{"createdAt": -1}).SetLimit(50),
+	)
+	if err != nil {
+		log.Printf("list follows failed user_id=%s err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "list follows failed"})
+		return
+	}
+	defer cursor.Close(ctx)
+
+	users := make([]model.UserProfile, 0, 20)
+	for cursor.Next(ctx) {
+		var follow model.UserFollow
+		if err := cursor.Decode(&follow); err != nil {
+			continue
+		}
+		profile, err := s.userProfile(ctx, follow.FollowID)
+		if err != nil {
+			continue
+		}
+		users = append(users, profile)
+	}
+	if err := cursor.Err(); err != nil {
+		log.Printf("list follows cursor failed user_id=%s err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "list follows failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"users": users})
+}
+
+func (s *Server) unfollowUser(c *gin.Context) {
+	userID := userIDFromContext(c)
+	targetID := strings.TrimSpace(c.Param("id"))
+	if targetID == "" || targetID == userID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid target"})
+		return
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+	if _, err := s.db.DB.Collection("user_follows").DeleteOne(ctx, bson.M{"_id": userID + ":" + targetID}); err != nil {
+		log.Printf("user unfollow failed user_id=%s target_id=%s err=%v", userID, targetID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unfollow failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "unfollowed"})
+}
+
+func (s *Server) sendDirectMessage(c *gin.Context) {
+	userID := userIDFromContext(c)
+	targetID := strings.TrimSpace(c.Param("id"))
+	if targetID == "" || targetID == userID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid target"})
+		return
+	}
+	var req directMessageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
+		return
+	}
+	text := strings.TrimSpace(req.Text)
+	if text == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "message is empty"})
+		return
+	}
+	if len([]rune(text)) > 240 {
+		text = string([]rune(text)[:240])
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+	if err := s.ensureUserExists(ctx, targetID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "target not found"})
+		return
+	}
+	message := model.DirectMessage{
+		ID:         newID(),
+		SenderID:   userID,
+		ReceiverID: targetID,
+		Text:       text,
+		CreatedAt:  time.Now().UTC(),
+	}
+	if _, err := s.db.DB.Collection("direct_messages").InsertOne(ctx, message); err != nil {
+		log.Printf("direct message failed user_id=%s target_id=%s err=%v", userID, targetID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "message failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": message})
 }
 
 // saveMatchSnapshot godoc
@@ -894,6 +1031,7 @@ func profileFromUser(user model.User) model.UserProfile {
 		Interests:           user.Interests,
 		Region:              region,
 		Gender:              gender,
+		Language:            normalizeLanguage(user.Language),
 		TrustBadge:          len(user.Interests) >= 3 && user.AgeConfirmed,
 		AgeConfirmed:        user.AgeConfirmed,
 		MembershipPlan:      user.MembershipPlan,
@@ -935,6 +1073,10 @@ func (s *Server) blockedUserIDs(ctx context.Context, userID string) ([]string, e
 	return ids, cursor.Err()
 }
 
+func (s *Server) ensureUserExists(ctx context.Context, userID string) error {
+	return s.db.DB.Collection("users").FindOne(ctx, bson.M{"_id": userID}).Err()
+}
+
 func normalizeInterests(items []string) []string {
 	seen := map[string]bool{}
 	out := make([]string, 0, 6)
@@ -953,7 +1095,7 @@ func normalizeInterests(items []string) []string {
 		}
 	}
 	if len(out) == 0 {
-		return []string{"聊天"}
+		return []string{"聊天", "电影", "音乐"}
 	}
 	return out
 }
@@ -985,8 +1127,104 @@ func normalizeProfileGender(value string) string {
 	}
 }
 
+func normalizeLanguage(value string) string {
+	switch strings.TrimSpace(value) {
+	case "zh", "en", "ja", "ko", "es":
+		return strings.TrimSpace(value)
+	default:
+		return "zh"
+	}
+}
+
+func compatibleMatch(self model.User, selfTicket model.MatchTicket, candidate model.User, candidateTicket model.MatchTicket) bool {
+	if normalizeLanguage(selfTicket.Language) != normalizeLanguage(candidateTicket.Language) {
+		return false
+	}
+	if !genderAccepted(selfTicket.GenderPreference, candidate.Gender) {
+		return false
+	}
+	if !genderAccepted(candidateTicket.GenderPreference, self.Gender) {
+		return false
+	}
+	return hasSharedInterest(selfTicket.Interests, candidateTicket.Interests)
+}
+
+func genderAccepted(preference, profileGender string) bool {
+	preference = normalizeGenderPreference(preference)
+	profileGender = normalizeProfileGender(profileGender)
+	return preference == "everyone" || preference == profileGender
+}
+
+func hasSharedInterest(a, b []string) bool {
+	if len(a) == 0 || len(b) == 0 {
+		return false
+	}
+	seen := map[string]bool{}
+	for _, item := range a {
+		value := strings.TrimSpace(item)
+		if value != "" {
+			seen[value] = true
+		}
+	}
+	for _, item := range b {
+		if seen[strings.TrimSpace(item)] {
+			return true
+		}
+	}
+	return false
+}
+
 func defaultAvatarURL() string {
 	return ""
+}
+
+func defaultDisplayName(userID string) string {
+	suffix := strings.ToUpper(userID)
+	if len(suffix) > 4 {
+		suffix = suffix[:4]
+	}
+	if suffix == "" {
+		return "星球旅人"
+	}
+	return "星球旅人 " + suffix
+}
+
+var defaultInterestPool = []string{
+	"聊天",
+	"电影",
+	"音乐",
+	"旅行",
+	"美食",
+	"运动",
+	"游戏",
+	"动漫",
+	"摄影",
+	"宠物",
+	"读书",
+	"咖啡",
+	"健身",
+	"语言交换",
+	"科技",
+	"深夜电台",
+}
+
+func defaultUserInterests(userID string) []string {
+	if userID == "" {
+		return []string{"聊天", "电影", "音乐"}
+	}
+	start := int(userID[0]) % len(defaultInterestPool)
+	step := 5
+	out := make([]string, 0, 4)
+	seen := map[string]bool{}
+	for i := 0; len(out) < 4 && i < len(defaultInterestPool); i++ {
+		item := defaultInterestPool[(start+i*step)%len(defaultInterestPool)]
+		if seen[item] {
+			continue
+		}
+		seen[item] = true
+		out = append(out, item)
+	}
+	return out
 }
 
 func updateUpsert() *options.UpdateOptions {

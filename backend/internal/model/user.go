@@ -10,6 +10,7 @@ type User struct {
 	Interests           []string   `bson:"interests,omitempty" json:"interests,omitempty"`
 	Region              string     `bson:"region,omitempty" json:"region,omitempty"`
 	Gender              string     `bson:"gender,omitempty" json:"gender,omitempty"`
+	Language            string     `bson:"language,omitempty" json:"language,omitempty"`
 	GemsBalance         int        `bson:"gemsBalance,omitempty" json:"gemsBalance,omitempty"`
 	AgeConfirmed        bool       `bson:"ageConfirmed" json:"ageConfirmed"`
 	MembershipPlan      string     `bson:"membershipPlan,omitempty" json:"membershipPlan,omitempty"`
@@ -27,6 +28,7 @@ type UserProfile struct {
 	Interests           []string   `bson:"interests,omitempty" json:"interests,omitempty"`
 	Region              string     `bson:"region,omitempty" json:"region,omitempty"`
 	Gender              string     `bson:"gender,omitempty" json:"gender,omitempty"`
+	Language            string     `bson:"language,omitempty" json:"language,omitempty"`
 	TrustBadge          bool       `bson:"-" json:"trustBadge"`
 	AgeConfirmed        bool       `bson:"ageConfirmed" json:"ageConfirmed"`
 	MembershipPlan      string     `bson:"membershipPlan,omitempty" json:"membershipPlan,omitempty"`
@@ -49,6 +51,21 @@ type UserReport struct {
 	CreatedAt  time.Time `bson:"createdAt" json:"createdAt"`
 }
 
+type UserFollow struct {
+	ID        string    `bson:"_id" json:"id"`
+	UserID    string    `bson:"userId" json:"userId"`
+	FollowID  string    `bson:"followId" json:"followId"`
+	CreatedAt time.Time `bson:"createdAt" json:"createdAt"`
+}
+
+type DirectMessage struct {
+	ID         string    `bson:"_id" json:"id"`
+	SenderID   string    `bson:"senderId" json:"senderId"`
+	ReceiverID string    `bson:"receiverId" json:"receiverId"`
+	Text       string    `bson:"text" json:"text"`
+	CreatedAt  time.Time `bson:"createdAt" json:"createdAt"`
+}
+
 type MatchMode string
 
 const (
@@ -57,10 +74,13 @@ const (
 )
 
 type MatchTicket struct {
-	UserID    string    `json:"userId"`
-	Mode      MatchMode `json:"mode"`
-	Region    string    `json:"region"`
-	CreatedAt time.Time `json:"createdAt"`
+	UserID           string    `json:"userId"`
+	Mode             MatchMode `json:"mode"`
+	Region           string    `json:"region"`
+	GenderPreference string    `json:"genderPreference"`
+	Language         string    `json:"language"`
+	Interests        []string  `json:"interests"`
+	CreatedAt        time.Time `json:"createdAt"`
 }
 
 type PaymentOrder struct {

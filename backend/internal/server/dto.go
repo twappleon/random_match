@@ -24,9 +24,11 @@ type anonymousAuthResponse struct {
 }
 
 type joinMatchRequest struct {
-	Mode   model.MatchMode `json:"mode" example:"video" enums:"video"`
-	Region string          `json:"region" example:"global"`
-	Gender string          `json:"gender" example:"everyone"`
+	Mode      model.MatchMode `json:"mode" example:"video" enums:"video"`
+	Region    string          `json:"region" example:"global"`
+	Gender    string          `json:"gender" example:"everyone"`
+	Language  string          `json:"language" example:"zh"`
+	Interests []string        `json:"interests" example:"movie,music,travel"`
 }
 
 type waitingMatchResponse struct {
@@ -71,6 +73,7 @@ type updateProfileRequest struct {
 	Interests    []string `json:"interests" example:"movie,music,travel"`
 	Region       string   `json:"region" example:"global"`
 	Gender       string   `json:"gender" example:"private"`
+	Language     string   `json:"language" example:"zh"`
 	AgeConfirmed bool     `json:"ageConfirmed" example:"true"`
 }
 
@@ -86,6 +89,14 @@ type userActionResponse struct {
 	Status string `json:"status" example:"ok"`
 }
 
+type directMessageRequest struct {
+	Text string `json:"text" example:"你好，想聊聊电影吗？"`
+}
+
+type directMessageResponse struct {
+	Message model.DirectMessage `json:"message"`
+}
+
 type blockedUserItem struct {
 	User      model.UserProfile `json:"user"`
 	CreatedAt time.Time         `json:"createdAt"`
@@ -93,6 +104,10 @@ type blockedUserItem struct {
 
 type blockedUsersResponse struct {
 	Users []blockedUserItem `json:"users"`
+}
+
+type followedUsersResponse struct {
+	Users []model.UserProfile `json:"users"`
 }
 
 type discoverProfilesResponse struct {

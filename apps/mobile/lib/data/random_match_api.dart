@@ -48,6 +48,7 @@ class RandomMatchApi {
     required bool ageConfirmed,
     required String region,
     required String gender,
+    required String language,
   }) async {
     final res = await _dio.put<Map<String, dynamic>>(
       '/api/v1/me',
@@ -58,6 +59,7 @@ class RandomMatchApi {
         'ageConfirmed': ageConfirmed,
         'region': region,
         'gender': gender,
+        'language': language,
       },
       options: _authOptions,
     );
@@ -74,10 +76,18 @@ class RandomMatchApi {
     required String mode,
     required String region,
     required String gender,
+    required String language,
+    required List<String> interests,
   }) async {
     final res = await _dio.post<Map<String, dynamic>>(
       '/api/v1/match/join',
-      data: {'mode': mode, 'region': region, 'gender': gender},
+      data: {
+        'mode': mode,
+        'region': region,
+        'gender': gender,
+        'language': language,
+        'interests': interests,
+      },
       options: _authOptions,
     );
     return MatchResponse.fromJson(res.data ?? {});
@@ -136,6 +146,39 @@ class RandomMatchApi {
     );
   }
 
+  Future<void> followUser(String userId) async {
+    await _dio.post<dynamic>('/api/v1/users/$userId/follow',
+        options: _authOptions);
+  }
+
+  Future<List<UserProfile>> fetchFollowedUsers() async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/users/follows',
+      options: _authOptions,
+    );
+    final users = res.data?['users'] as List? ?? const [];
+    return users
+        .whereType<Map<String, dynamic>>()
+        .map(UserProfile.fromJson)
+        .toList();
+  }
+
+  Future<void> unfollowUser(String userId) async {
+    await _dio.delete<dynamic>('/api/v1/users/$userId/follow',
+        options: _authOptions);
+  }
+
+  Future<void> sendDirectMessage({
+    required String userId,
+    required String text,
+  }) async {
+    await _dio.post<dynamic>(
+      '/api/v1/users/$userId/messages',
+      data: {'text': text},
+      options: _authOptions,
+    );
+  }
+
   Future<void> blockUser(String userId) async {
     await _dio.post<dynamic>('/api/v1/users/$userId/block',
         options: _authOptions);
@@ -180,6 +223,9 @@ class RandomMatchApi {
 
   String userMessage(Object error) {
     if (error is DioException) {
+      if (error.response?.statusCode == 404) {
+        return '后端尚未支持此功能，请部署最新后端后再试';
+      }
       if (error.response?.statusCode == 402) {
         final data = error.response?.data;
         final remaining = data is Map ? data['dailyRemaining'] ?? 0 : 0;

@@ -109,7 +109,28 @@
           兴趣标签
           <input v-model="interestsText" placeholder="电影, 音乐, 旅行" />
         </label>
-        <label class="age-check">
+        <div class="interest-picker" aria-label="interest suggestions">
+          <button
+            v-for="item in interestSuggestions"
+            :key="item"
+            type="button"
+            :class="{ active: selectedInterests.includes(item) }"
+            @click="toggleInterest(item)"
+          >
+            {{ item }}
+          </button>
+        </div>
+        <label>
+          常用语言
+          <select v-model="profileForm.language">
+            <option value="zh">中文</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+            <option value="ko">한국어</option>
+            <option value="es">Español</option>
+          </select>
+        </label>
+        <label ref="ageCheckRef" class="age-check" :class="{ attention: ageCheckAttention }">
           <input v-model="profileForm.ageConfirmed" type="checkbox" />
           <span>我已满 18 岁并同意文明视讯</span>
         </label>
@@ -145,20 +166,152 @@
       </div>
     </section>
 
+    <section v-show="activePage === 'discover'" class="page page-shell">
+      <div class="discover-page" aria-label="lounge discover">
+        <header class="discover-head">
+          <div>
+            <strong>Lounge</strong>
+            <span>浏览资料、关注、私信，再进入 1v1 连线</span>
+          </div>
+          <button type="button" :disabled="discoverLoading" @click="loadDiscoverProfiles">
+            {{ discoverLoading ? '刷新中' : '刷新' }}
+          </button>
+        </header>
+
+        <section class="discover-filters" aria-label="discover filters">
+          <div class="mode-switch">
+            <button type="button" :class="{ active: mode === 'video' }" @click="mode = 'video'">视讯</button>
+            <button type="button" :class="{ active: mode === 'voice' }" @click="mode = 'voice'">语音</button>
+          </div>
+          <label>
+            地区
+            <select v-model="selectedRegion" @change="loadDiscoverProfiles">
+              <option value="global">全球</option>
+              <option value="tw">台湾</option>
+              <option value="jp">日本</option>
+              <option value="kr">韩国</option>
+              <option value="us">美国</option>
+            </select>
+          </label>
+          <label>
+            对象
+            <select v-model="genderPreference" @change="loadDiscoverProfiles">
+              <option value="everyone">不限</option>
+              <option value="female">女性</option>
+              <option value="male">男性</option>
+            </select>
+          </label>
+          <p>基础随机免费，精准筛选可用 Gems 解锁</p>
+        </section>
+
+        <section v-if="followedUsers.length > 0" class="followed-section" aria-label="followed users">
+          <div class="section-head">
+            <div>
+              <strong>我的关注</strong>
+              <span>点头像可以用相同偏好进入连线</span>
+            </div>
+          </div>
+          <div class="followed-list">
+            <button
+              v-for="user in followedUsers"
+              :key="user.id"
+              class="followed-user"
+              type="button"
+              @click="startFromProfile(user)"
+            >
+              <span class="avatar">{{ userInitial(user) }}</span>
+              <strong>{{ user.displayName || '星球旅人' }}</strong>
+              <small>{{ languageLabel(user.language || 'zh') }}</small>
+            </button>
+          </div>
+        </section>
+
+        <section class="discover-list" aria-label="discover profiles">
+          <p v-if="discoverLoading && discoverProfiles.length === 0" class="empty-list">正在读取 Lounge 列表</p>
+          <p v-else-if="discoverProfiles.length === 0" class="empty-list">目前没有符合条件的对象，换个地区或对象试试</p>
+          <article v-for="user in discoverProfiles" :key="user.id" class="discover-card">
+            <div class="discover-user">
+              <div class="avatar">{{ userInitial(user) }}</div>
+              <div>
+                <strong>
+                  {{ user.displayName || '星球旅人' }}
+                  <span v-if="user.trustBadge" class="trust-badge">✓</span>
+                </strong>
+                <span>{{ regionLabel(user.region || 'global') }} · {{ user.bio || '愿意认识新朋友' }}</span>
+              </div>
+            </div>
+            <div class="tags">
+              <span v-for="item in profileInterests(user)" :key="`${user.id}-${item}`">{{ item }}</span>
+            </div>
+            <div class="discover-actions">
+              <button type="button" @click="toggleFollow(user)">
+                {{ isFollowing(user.id) ? '取消关注' : '关注' }}
+              </button>
+              <button type="button" @click="openDirectMessage(user)">私信</button>
+              <button type="button" @click="dismissDiscoverProfile(user.id)">换一批</button>
+              <button class="connect" type="button" @click="startFromProfile(user)">以此偏好连接</button>
+            </div>
+          </article>
+        </section>
+      </div>
+    </section>
+
     <section v-show="activePage === 'membership'" class="page page-shell">
-      <div class="content-card membership-page" aria-label="membership">
-        <div class="membership-summary">
-          <strong>{{ membershipTitle }}</strong>
-          <span>{{ membershipText }}</span>
-        </div>
-        <div class="benefits">
-          <span>无限随机匹配</span>
-          <span>进入优先队列</span>
-          <span>免费额度用完后继续使用</span>
-        </div>
-        <button :disabled="paymentLoading || commerceStatus?.isMember" @click="buyMembership">
-          {{ paymentButtonText }}
-        </button>
+      <div class="membership-page" aria-label="membership">
+        <section class="membership-hero">
+          <div class="membership-orb" aria-hidden="true">◆</div>
+          <div class="membership-summary">
+            <span class="eyebrow">MATCH PASS</span>
+            <strong>{{ membershipTitle }}</strong>
+            <span>{{ membershipText }}</span>
+          </div>
+          <button class="membership-cta" :disabled="paymentLoading || commerceStatus?.isMember" @click="buyMembership">
+            {{ paymentButtonText }}
+          </button>
+        </section>
+
+        <section class="pass-grid" aria-label="membership packages">
+          <button class="pass-card" type="button" :disabled="paymentLoading || commerceStatus?.isMember" @click="buyMembership">
+            <span class="pass-gem">◆</span>
+            <strong>月度会员</strong>
+            <small>无限匹配</small>
+            <b>$6.99</b>
+          </button>
+          <button class="pass-card featured" type="button" :disabled="paymentLoading || commerceStatus?.isMember" @click="buyMembership">
+            <span class="pass-ribbon">推荐</span>
+            <span class="pass-gem">◆</span>
+            <strong>优先通行</strong>
+            <small>无限匹配 + 优先队列</small>
+            <b>$6.99/月</b>
+          </button>
+          <button class="pass-card" type="button" :disabled="paymentLoading || commerceStatus?.isMember" @click="buyMembership">
+            <span class="pass-gem pink">◆</span>
+            <strong>畅聊模式</strong>
+            <small>额度用完后继续使用</small>
+            <b>会员包含</b>
+          </button>
+        </section>
+
+        <section class="benefits">
+          <div>
+            <strong>无限随机匹配</strong>
+            <span>不受每日免费次数限制</span>
+          </div>
+          <div>
+            <strong>进入优先队列</strong>
+            <span>高峰期减少等待时间</span>
+          </div>
+          <div>
+            <strong>安全加速体验</strong>
+            <span>保留举报、拉黑和离开控制</span>
+          </div>
+        </section>
+
+        <footer class="payment-note">
+          <span>安全交易</span>
+          <span>加密支付</span>
+          <span>可随时确认状态</span>
+        </footer>
       </div>
     </section>
 
@@ -209,6 +362,7 @@
 
     <nav class="app-nav" aria-label="main navigation">
       <button :class="{ active: activePage === 'video' }" @click="switchPage('video')">视讯</button>
+      <button :class="{ active: activePage === 'discover' }" @click="switchPage('discover')">探索</button>
       <button :class="{ active: activePage === 'profile' }" @click="switchPage('profile')">资料</button>
       <button :class="{ active: activePage === 'membership' }" @click="switchPage('membership')">会员</button>
       <button :class="{ active: activePage === 'guide' }" @click="switchPage('guide')">指南</button>
@@ -225,11 +379,11 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { anonymousAuth, blockUser, confirmPaymentOrder, createPaymentOrder, fetchBlockedUsers, fetchCommerceStatus, fetchProfile, fetchStats, iceServers, joinMatch, leaveMatch, reportUser, savePushSubscription, sendPushTest, unblockUser, updateProfile, uploadMatchSnapshot, vapidPublicKey, verifySession, type BlockedUser, type CommerceStatus, type MatchMode, type UserProfile, wsURL } from './api'
+import { anonymousAuth, blockUser, confirmPaymentOrder, createPaymentOrder, fetchBlockedUsers, fetchCommerceStatus, fetchDiscoverProfiles, fetchFollowedUsers, fetchProfile, fetchStats, followUser, iceServers, joinMatch, leaveMatch, reportUser, savePushSubscription, sendDirectMessage, sendPushTest, unblockUser, unfollowUser, updateProfile, uploadMatchSnapshot, vapidPublicKey, verifySession, type BlockedUser, type CommerceStatus, type MatchMode, type UserProfile, wsURL } from './api'
 import { initAnalytics } from './firebase'
 
 type Status = 'idle' | 'waiting' | 'matched'
-type Page = 'video' | 'profile' | 'membership' | 'guide'
+type Page = 'video' | 'discover' | 'profile' | 'membership' | 'guide'
 type ChatMessage = {
   id: string
   sender: 'self' | 'peer'
@@ -247,6 +401,7 @@ const savingProfile = ref(false)
 const safetyLoading = ref(false)
 const paymentLoading = ref(false)
 const loadingBlockedUsers = ref(false)
+const discoverLoading = ref(false)
 const reportedPeerId = ref<string | null>(null)
 const unblockingUserId = ref<string | null>(null)
 const pushStatus = ref<'idle' | 'enabled' | 'blocked' | 'unsupported' | 'unconfigured'>('idle')
@@ -254,13 +409,19 @@ const errorText = ref('')
 const profile = ref<UserProfile | null>(null)
 const peerProfile = ref<UserProfile | null>(null)
 const blockedUsers = ref<BlockedUser[]>([])
+const discoverProfiles = ref<UserProfile[]>([])
+const followedUsers = ref<UserProfile[]>([])
 const commerceStatus = ref<CommerceStatus | null>(null)
 const profileForm = ref({
   displayName: '星球旅人',
   bio: '',
+  language: 'zh',
   ageConfirmed: false
 })
 const interestsText = ref('聊天, 电影, 音乐')
+const interestSuggestions = ['聊天', '电影', '音乐', '旅行', '美食', '运动', '游戏', '动漫', '摄影', '宠物', '读书', '咖啡', '健身', '语言交换', '科技', '深夜电台']
+const selectedRegion = ref('global')
+const genderPreference = ref('everyone')
 const stats = ref({ online: 0, waiting: 0, chatting: 0 })
 const statsTimer = ref<number | null>(null)
 const token = ref(localStorage.getItem('token') ?? '')
@@ -282,8 +443,10 @@ const pendingCandidates = ref<RTCIceCandidateInit[]>([])
 const stage = ref<HTMLElement | null>(null)
 const chatList = ref<HTMLElement | null>(null)
 const localPreview = ref<HTMLElement | null>(null)
+const ageCheckRef = ref<HTMLElement | null>(null)
 const remoteVideo = ref<HTMLVideoElement | null>(null)
 const localVideo = ref<HTMLVideoElement | null>(null)
+const ageCheckAttention = ref(false)
 const previewPosition = ref({ x: 0, y: 0 })
 const previewPositioned = ref(false)
 const previewDrag = ref<{
@@ -338,6 +501,8 @@ const canBlockPeer = computed(() => status.value === 'matched' && Boolean(active
 const chatEmptyText = computed(() => canUseChat.value ? '开始文字聊天' : '匹配成功后可文字聊天')
 const chatInputPlaceholder = computed(() => canUseChat.value ? '输入消息...' : '等待匹配后开始聊天')
 const chatHeaderText = computed(() => canUseChat.value ? peerDisplayName.value : '目前尚未连接对象')
+const selectedInterests = computed(() => parsedInterests())
+const followedUserIds = computed(() => new Set(followedUsers.value.map((user) => user.id)))
 
 initAnalytics()
 
@@ -389,6 +554,9 @@ async function switchPage(page: Page) {
   if (page === 'membership') {
     void loadCommerceStatus().catch(() => undefined)
   }
+  if (page === 'discover') {
+    void loadDiscoverProfiles().catch(() => undefined)
+  }
   if (page === 'profile') {
     void loadBlockedUsers().catch(() => undefined)
   }
@@ -428,6 +596,7 @@ function setProfile(nextProfile: UserProfile) {
   profileForm.value = {
     displayName: nextProfile.displayName || '星球旅人',
     bio: nextProfile.bio || '',
+    language: nextProfile.language || 'zh',
     ageConfirmed: Boolean(nextProfile.ageConfirmed)
   }
   interestsText.value = (nextProfile.interests?.length ? nextProfile.interests : ['聊天', '电影', '音乐']).join(', ')
@@ -439,6 +608,7 @@ async function loadProfile() {
     setProfile(await fetchProfile(token.value))
     await loadCommerceStatus()
     await loadBlockedUsers()
+    await loadFollowedUsers()
   } catch {
     // Profile is refreshed again before matching.
   }
@@ -457,6 +627,111 @@ async function loadBlockedUsers() {
   } finally {
     loadingBlockedUsers.value = false
   }
+}
+
+async function loadDiscoverProfiles() {
+  discoverLoading.value = true
+  try {
+    await ensureAuth()
+    const [users] = await Promise.all([
+      fetchDiscoverProfiles(token.value, {
+        region: selectedRegion.value,
+        gender: genderPreference.value
+      }),
+      loadFollowedUsers()
+    ])
+    discoverProfiles.value = users
+  } catch (error) {
+    errorText.value = toUserMessage(error)
+  } finally {
+    discoverLoading.value = false
+  }
+}
+
+async function loadFollowedUsers() {
+  await ensureAuth()
+  followedUsers.value = await fetchFollowedUsers(token.value)
+}
+
+function isFollowing(userId: string) {
+  return followedUserIds.value.has(userId)
+}
+
+async function toggleFollow(user: UserProfile) {
+  if (!user.id) return
+  errorText.value = ''
+  try {
+    await ensureAuth()
+    if (isFollowing(user.id)) {
+      await unfollowUser(token.value, user.id)
+      followedUsers.value = followedUsers.value.filter((item) => item.id !== user.id)
+      errorText.value = '已取消关注'
+      return
+    }
+    await followUser(token.value, user.id)
+    if (!isFollowing(user.id)) followedUsers.value = [user, ...followedUsers.value]
+    errorText.value = `${user.displayName || '星球旅人'} 会出现在我的关注中`
+  } catch (error) {
+    errorText.value = toUserMessage(error)
+  }
+}
+
+async function openDirectMessage(user: UserProfile) {
+  if (!user.id) return
+  const text = window.prompt(`发送私信给 ${user.displayName || '星球旅人'}`, '你好，想认识你')
+  if (!text?.trim()) return
+  errorText.value = ''
+  try {
+    await ensureAuth()
+    await sendDirectMessage(token.value, user.id, text.trim())
+    errorText.value = '私信已送出'
+  } catch (error) {
+    errorText.value = toUserMessage(error)
+  }
+}
+
+function dismissDiscoverProfile(userId: string) {
+  discoverProfiles.value = discoverProfiles.value.filter((user) => user.id !== userId)
+  if (discoverProfiles.value.length <= 2) void loadDiscoverProfiles().catch(() => undefined)
+}
+
+async function startFromProfile(user: UserProfile) {
+  if (user.region) selectedRegion.value = user.region
+  if (user.gender === 'female' || user.gender === 'male') genderPreference.value = user.gender
+  if (user.language) profileForm.value.language = user.language
+  if (user.interests?.length) interestsText.value = user.interests.slice(0, 6).join(', ')
+  peerProfile.value = user
+  await startMatch()
+}
+
+function userInitial(user: UserProfile) {
+  return (user.displayName || '星').trim().slice(0, 1).toUpperCase()
+}
+
+function profileInterests(user: UserProfile) {
+  return user.interests?.length ? user.interests.slice(0, 4) : ['聊天', '电影', '音乐']
+}
+
+function regionLabel(region: string) {
+  const labels: Record<string, string> = {
+    global: '全球',
+    tw: '台湾',
+    jp: '日本',
+    kr: '韩国',
+    us: '美国'
+  }
+  return labels[region] || region
+}
+
+function languageLabel(language: string) {
+  const labels: Record<string, string> = {
+    zh: '中文',
+    en: 'English',
+    ja: '日本語',
+    ko: '한국어',
+    es: 'Español'
+  }
+  return labels[language] || language
 }
 
 async function unblockBlockedUser(userId: string) {
@@ -483,6 +758,20 @@ function parsedInterests() {
   return Array.from(new Set(items)).slice(0, 6)
 }
 
+function toggleInterest(item: string) {
+  const items = parsedInterests()
+  const existingIndex = items.indexOf(item)
+  if (existingIndex >= 0) {
+    items.splice(existingIndex, 1)
+  } else if (items.length < 6) {
+    items.push(item)
+  } else {
+    errorText.value = '最多选择 6 个兴趣标签'
+    return
+  }
+  interestsText.value = items.join(', ')
+}
+
 async function saveProfile() {
   savingProfile.value = true
   errorText.value = ''
@@ -501,6 +790,7 @@ async function persistProfile() {
     displayName: profileForm.value.displayName,
     bio: profileForm.value.bio,
     interests: parsedInterests(),
+    language: profileForm.value.language,
     ageConfirmed: profileForm.value.ageConfirmed
   })
   setProfile(updated)
@@ -578,14 +868,21 @@ async function startMatch() {
     await switchPage('video')
     resetCall()
     if (!profileForm.value.ageConfirmed) {
-      throw new Error('请先确认已满 18 岁并保存资料')
+      await showAgeConfirmationRequired()
+      return
     }
     await persistProfile()
     await setupPushNotifications(pushStatus.value === 'idle')
     await ensureAuth()
     await openMedia()
     await openSocketWithAuth()
-    const result = await joinMatch(token.value, mode.value)
+    const result = await joinMatch(token.value, {
+      mode: mode.value,
+      region: selectedRegion.value,
+      gender: genderPreference.value,
+      language: profileForm.value.language,
+      interests: parsedInterests()
+    })
     await loadCommerceStatus()
     status.value = result.status === 'matched' ? 'matched' : 'waiting'
     if (result.status === 'matched' && result.roomId) {
@@ -593,7 +890,7 @@ async function startMatch() {
       activePeerId.value = result.peerId || null
       peerCardHidden.value = false
       peerProfile.value = result.peerProfile || null
-      void captureAndUploadSnapshot(result.roomId, result.peerId)
+      if (mode.value === 'video') void captureAndUploadSnapshot(result.roomId, result.peerId)
     }
     if (result.status === 'matched' && result.initiator && result.peerId) {
       await createPeer(result.peerId)
@@ -605,6 +902,21 @@ async function startMatch() {
   } finally {
     loading.value = false
   }
+}
+
+async function showAgeConfirmationRequired() {
+  loading.value = false
+  leaving.value = false
+  status.value = 'idle'
+  chatOpen.value = false
+  await switchPage('profile')
+  errorText.value = '请先确认已满 18 岁并保存资料'
+  ageCheckAttention.value = true
+  await nextTick()
+  ageCheckRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  window.setTimeout(() => {
+    ageCheckAttention.value = false
+  }, 2600)
 }
 
 async function buyMembership() {
@@ -725,7 +1037,7 @@ async function openMedia() {
   }
   stopLocalMedia()
   localStream.value = await navigator.mediaDevices.getUserMedia({
-    video: videoConstraints(cameraFacing.value),
+    video: mode.value === 'video' ? videoConstraints(cameraFacing.value) : false,
     audio: {
       echoCancellation: true,
       noiseSuppression: true,

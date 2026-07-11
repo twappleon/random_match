@@ -56,6 +56,8 @@ class ChatSheet extends GetView<MatchController> {
                       itemBuilder: (context, index) {
                         final message = controller.messages[index];
                         final mine = message.sender == ChatSender.self;
+                        final translated =
+                            controller.translatedPreview(message.text);
                         return Align(
                           alignment: mine
                               ? Alignment.centerRight
@@ -72,16 +74,37 @@ class ChatSheet extends GetView<MatchController> {
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 10, vertical: 8),
-                                child: Text(
-                                  message.text,
-                                  style: TextStyle(
-                                    color: mine
-                                        ? const Color(0xff06150c)
-                                        : Colors.white,
-                                    fontWeight: mine
-                                        ? FontWeight.w700
-                                        : FontWeight.w500,
-                                  ),
+                                child: Column(
+                                  crossAxisAlignment: mine
+                                      ? CrossAxisAlignment.end
+                                      : CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      message.text,
+                                      style: TextStyle(
+                                        color: mine
+                                            ? const Color(0xff06150c)
+                                            : Colors.white,
+                                        fontWeight: mine
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                      ),
+                                    ),
+                                    if (translated.isNotEmpty) ...[
+                                      const SizedBox(height: 5),
+                                      Text(
+                                        translated,
+                                        style: TextStyle(
+                                          color: mine
+                                              ? const Color(0xaa06150c)
+                                              : Colors.white70,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
                             ),

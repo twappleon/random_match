@@ -17,6 +17,9 @@ class VideoPage extends GetView<MatchController> {
       final matched = status == MatchStatus.matched;
       final waiting = status == MatchStatus.waiting;
       final chatOpen = controller.chatOpen.value;
+      final controlsVisible = !matched ||
+          controller.controlsVisible.value ||
+          controller.controlsExpanded.value;
       final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
       final keyboardOpen = keyboardInset > 0;
       final chatBottom = keyboardOpen ? 12.0 : 100.0;
@@ -54,6 +57,16 @@ class VideoPage extends GetView<MatchController> {
                   child: _StatsBar(stats: controller.stats.value),
                 ),
               ),
+              if (matched && !chatOpen)
+                Positioned(
+                  top: 86,
+                  left: 14,
+                  right: 14,
+                  child: SafeArea(
+                    bottom: false,
+                    child: _TranslationCaption(controller: controller),
+                  ),
+                ),
               if (!matched)
                 Positioned.fill(
                   top: 96,
@@ -75,14 +88,18 @@ class VideoPage extends GetView<MatchController> {
               if (matched && !chatOpen)
                 Positioned(
                   right: 16,
-                  bottom: 112,
-                  width: 118,
-                  height: 172,
+                  bottom: controlsVisible ? 116 : 82,
+                  width: 94,
+                  height: 138,
                   child: _LocalPreview(renderer: controller.localRenderer),
                 ),
               if (matched && !chatOpen && !controller.peerCardHidden.value)
-                const Positioned(
-                    left: 12, right: 12, bottom: 100, child: PeerBar()),
+                Positioned(
+                  left: 12,
+                  right: 118,
+                  bottom: controlsVisible ? 118 : 28,
+                  child: const PeerBar(),
+                ),
               if (chatOpen)
                 Positioned(
                   left: 12,
@@ -91,7 +108,7 @@ class VideoPage extends GetView<MatchController> {
                   height: chatHeight,
                   child: const ChatSheet(),
                 ),
-              if (!chatOpen)
+              if (!chatOpen && controlsVisible)
                 Positioned(
                   left: 12,
                   right: 12,
@@ -101,6 +118,20 @@ class VideoPage extends GetView<MatchController> {
                     child: _ActionDock(
                       controller: controller,
                       status: status,
+                    ),
+                  ),
+                ),
+              if (matched && !chatOpen && !controlsVisible)
+                Positioned(
+                  right: 12,
+                  bottom: 18,
+                  child: SafeArea(
+                    top: false,
+                    child: _ControlHandle(
+                      onPressed: () {
+                        controller.controlsVisible.value = true;
+                        controller.controlsExpanded.value = true;
+                      },
                     ),
                   ),
                 ),
@@ -222,6 +253,43 @@ class _LocalPreview extends StatelessWidget {
   }
 }
 
+class _ControlHandle extends StatelessWidget {
+  const _ControlHandle({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: const [
+          BoxShadow(color: Colors.black54, blurRadius: 22),
+          BoxShadow(color: Color(0x337c5cff), blurRadius: 26),
+        ],
+      ),
+      child: FilledButton.icon(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(96, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          backgroundColor: const Color(0xd9080a13),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.14)),
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+        onPressed: onPressed,
+        icon: const Icon(Icons.tune_rounded, size: 18),
+        label: const Text(
+          '控制',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+    );
+  }
+}
+
 class _ActionDock extends StatelessWidget {
   const _ActionDock({
     required this.controller,
@@ -237,43 +305,155 @@ class _ActionDock extends StatelessWidget {
     final leaving = controller.leaving.value;
     final matched = status == MatchStatus.matched;
     final waiting = status == MatchStatus.waiting;
+    final expanded = controller.controlsExpanded.value;
+    final canBlock = matched &&
+        controller.activePeerId != null &&
+        !controller.safetyLoading.value &&
+        !leaving;
+    final canStart = !loading && !waiting && !matched;
+    final canLeave = !leaving && status != MatchStatus.idle;
 
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-        borderRadius: BorderRadius.circular(12),
-        color: const Color(0xd9080a13),
+        borderRadius: BorderRadius.circular(10),
+        color: const Color(0xd6080a13),
         boxShadow: const [
           BoxShadow(color: Colors.black54, blurRadius: 34),
           BoxShadow(color: Color(0x267c5cff), blurRadius: 44),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (expanded) ...[
+              _CompactSettings(controller: controller, matched: matched),
+              const SizedBox(height: 8),
+            ],
             Row(
               children: [
+                _DockIconButton(
+                  selected: expanded,
+                  icon: expanded
+                      ? Icons.keyboard_arrow_down_rounded
+                      : Icons.tune_rounded,
+                  label: expanded ? '收起' : '设置',
+                  onPressed: () {
+                    if (expanded && matched) {
+                      controller.controlsExpanded.value = false;
+                      controller.controlsVisible.value = false;
+                      return;
+                    }
+                    controller.controlsExpanded.value = !expanded;
+                  },
+                ),
+                const SizedBox(width: 7),
                 Expanded(
-                  child: _PreferencePill(
-                    icon: status == MatchStatus.matched
-                        ? Icons.lock_open_rounded
-                        : Icons.public_rounded,
-                    label:
-                        '${controller.matchMode.value == MatchModePreference.voice ? '语音' : '视讯'} · ${controller.regionLabel(controller.selectedRegion.value)} · ${controller.genderPreferenceLabel}',
+                  child: _DockMainButton(
+                    onPressed: controller.toggleChat,
+                    icon: controller.chatOpen.value
+                        ? Icons.keyboard_arrow_down_rounded
+                        : Icons.chat_bubble_outline_rounded,
+                    label: controller.chatOpen.value ? '收起文字' : '文字',
                   ),
                 ),
-                const SizedBox(width: 8),
-                IconButton.filledTonal(
-                  tooltip: '探索',
-                  onPressed: () => controller.switchPage(AppPage.discover),
-                  icon: const Icon(Icons.style_outlined),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: _DockMainButton(
+                    onPressed: canBlock ? controller.blockPeer : null,
+                    icon: Icons.block_rounded,
+                    label: controller.safetyLoading.value ? '处理中' : '拉黑',
+                    dangerSoft: true,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            if (!matched && !waiting) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _DockMainButton(
+                    onPressed: canStart ? controller.startMatch : null,
+                    icon: matched
+                        ? Icons.check_rounded
+                        : waiting
+                            ? Icons.hourglass_top_rounded
+                            : Icons.auto_awesome_rounded,
+                    label: matched
+                        ? '已连线'
+                        : loading || waiting
+                            ? '匹配中'
+                            : '随机匹配',
+                    primary: true,
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: _DockMainButton(
+                    onPressed: canLeave ? controller.leaveCall : null,
+                    icon: Icons.logout_rounded,
+                    label: leaving ? '退出中' : '退出',
+                    danger: true,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CompactSettings extends StatelessWidget {
+  const _CompactSettings({
+    required this.controller,
+    required this.matched,
+  });
+
+  final MatchController controller;
+  final bool matched;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.055),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _PreferencePill(
+              icon: matched ? Icons.lock_open_rounded : Icons.public_rounded,
+              label:
+                  '${controller.matchMode.value == MatchModePreference.voice ? '语音' : '视讯'} · ${controller.regionLabel(controller.selectedRegion.value)} · ${controller.genderPreferenceLabel}',
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: _TranslationSelector(controller: controller)),
+                const SizedBox(width: 8),
+                _DockIconButton(
+                  icon: Icons.style_outlined,
+                  label: '探索',
+                  onPressed: () => controller.switchPage(AppPage.discover),
+                ),
+                const SizedBox(width: 8),
+                _DockIconButton(
+                  icon: Icons.workspace_premium_outlined,
+                  label: '会员',
+                  onPressed: () => controller.switchPage(AppPage.membership),
+                ),
+              ],
+            ),
+            if (!matched && controller.status.value != MatchStatus.waiting) ...[
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
@@ -299,59 +479,204 @@ class _ActionDock extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
             ],
-            Row(
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TranslationCaption extends StatelessWidget {
+  const _TranslationCaption({required this.controller});
+
+  final MatchController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled =
+        controller.translationLanguage.value != TranslationLanguage.off;
+    return AnimatedOpacity(
+      opacity: enabled ? 1 : 0,
+      duration: const Duration(milliseconds: 180),
+      child: IgnorePointer(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xcc050608),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
               children: [
-                Expanded(
-                  child: _AuroraButton(
-                    onPressed: controller.toggleChat,
-                    icon: controller.chatOpen.value
-                        ? Icons.keyboard_arrow_down_rounded
-                        : Icons.chat_bubble_outline_rounded,
-                    label: controller.chatOpen.value ? '收起文字' : '文字',
-                  ),
-                ),
+                const Icon(Icons.translate_rounded,
+                    size: 18, color: Color(0xff20c8ff)),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: _AuroraButton(
-                    onPressed: matched &&
-                            controller.activePeerId != null &&
-                            !controller.safetyLoading.value &&
-                            !leaving
-                        ? controller.blockPeer
-                        : null,
-                    icon: Icons.block_rounded,
-                    label: controller.safetyLoading.value ? '处理中' : '拉黑',
-                    dangerSoft: true,
+                  child: Text(
+                    '实时字幕 · ${controller.translationLanguageLabel}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w900),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            _AuroraButton(
-              onPressed:
-                  loading || waiting || matched ? null : controller.startMatch,
-              icon: Icons.auto_awesome_rounded,
-              label: matched
-                  ? '已连线'
-                  : loading || waiting
-                      ? '匹配中'
-                      : '随机匹配',
-              primary: true,
-            ),
-            const SizedBox(height: 8),
-            _AuroraButton(
-              onPressed: leaving || status == MatchStatus.idle
-                  ? null
-                  : controller.leaveCall,
-              icon: Icons.logout_rounded,
-              label: leaving ? '退出中' : '退出',
-              danger: true,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DockIconButton extends StatelessWidget {
+  const _DockIconButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.selected = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 58,
+      height: 52,
+      child: FilledButton(
+        style: FilledButton.styleFrom(
+          padding: EdgeInsets.zero,
+          backgroundColor:
+              selected ? const Color(0xff25305a) : const Color(0xff1c2130),
+          disabledBackgroundColor: const Color(0xff171b27),
+          foregroundColor: Colors.white,
+          disabledForegroundColor: Colors.white54,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        onPressed: onPressed,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 19),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _DockMainButton extends StatelessWidget {
+  const _DockMainButton({
+    required this.label,
+    this.onPressed,
+    this.icon,
+    this.primary = false,
+    this.danger = false,
+    this.dangerSoft = false,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final IconData? icon;
+  final bool primary;
+  final bool danger;
+  final bool dangerSoft;
+
+  @override
+  Widget build(BuildContext context) {
+    final background = primary
+        ? null
+        : danger
+            ? const Color(0xffb84d5b)
+            : dangerSoft
+                ? const Color(0x3dff5c74)
+                : const Color(0xff1c2130);
+    return SizedBox(
+      height: 52,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          gradient: primary
+              ? const LinearGradient(
+                  colors: [Color(0xff7c5cff), Color(0xff20c8ff)],
+                )
+              : null,
+          boxShadow: primary
+              ? const [BoxShadow(color: Color(0x477c5cff), blurRadius: 22)]
+              : null,
+        ),
+        child: FilledButton(
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            backgroundColor: primary ? Colors.transparent : background,
+            disabledBackgroundColor: const Color(0xff171b27),
+            shadowColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            disabledForegroundColor: Colors.white54,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          onPressed: onPressed,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 18),
+                  const SizedBox(width: 5),
+                ],
+                Text(
+                  label,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TranslationSelector extends StatelessWidget {
+  const _TranslationSelector({required this.controller});
+
+  final MatchController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<TranslationLanguage>(
+      key: ValueKey('translation-${controller.translationLanguage.value.name}'),
+      initialValue: controller.translationLanguage.value,
+      decoration: const InputDecoration(
+        labelText: '实时翻译',
+        prefixIcon: Icon(Icons.translate_rounded),
+        isDense: true,
+      ),
+      items: const [
+        DropdownMenuItem(value: TranslationLanguage.off, child: Text('关闭')),
+        DropdownMenuItem(value: TranslationLanguage.zh, child: Text('中文')),
+        DropdownMenuItem(value: TranslationLanguage.en, child: Text('English')),
+        DropdownMenuItem(value: TranslationLanguage.ja, child: Text('日本語')),
+        DropdownMenuItem(value: TranslationLanguage.ko, child: Text('한국어')),
+        DropdownMenuItem(value: TranslationLanguage.es, child: Text('Español')),
+      ],
+      onChanged: (value) {
+        if (value != null) controller.translationLanguage.value = value;
+      },
     );
   }
 }
@@ -657,80 +982,6 @@ class _AuroraChip extends StatelessWidget {
         child: Text(
           label,
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-        ),
-      ),
-    );
-  }
-}
-
-class _AuroraButton extends StatelessWidget {
-  const _AuroraButton({
-    required this.label,
-    this.onPressed,
-    this.icon,
-    this.primary = false,
-    this.danger = false,
-    this.dangerSoft = false,
-  });
-
-  final String label;
-  final VoidCallback? onPressed;
-  final IconData? icon;
-  final bool primary;
-  final bool danger;
-  final bool dangerSoft;
-
-  @override
-  Widget build(BuildContext context) {
-    final background = primary
-        ? null
-        : danger
-            ? const Color(0xffb84d5b)
-            : dangerSoft
-                ? const Color(0x3dff5c74)
-                : const Color(0xff1c2130);
-    return SizedBox(
-      width: double.infinity,
-      height: 48,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          gradient: primary
-              ? const LinearGradient(
-                  colors: [Color(0xff7c5cff), Color(0xff20c8ff)],
-                )
-              : null,
-          boxShadow: primary
-              ? const [BoxShadow(color: Color(0x477c5cff), blurRadius: 28)]
-              : null,
-        ),
-        child: FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: primary ? Colors.transparent : background,
-            disabledBackgroundColor: const Color(0xff1c2130),
-            shadowColor: Colors.transparent,
-            foregroundColor: Colors.white,
-            disabledForegroundColor: Colors.white54,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-          onPressed: onPressed,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (icon != null) ...[
-                  Icon(icon, size: 18),
-                  const SizedBox(width: 6),
-                ],
-                Text(
-                  label,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );

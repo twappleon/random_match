@@ -14,16 +14,30 @@ class DiscoverPage extends GetView<MatchController> {
         onRefresh: controller.loadDiscoverProfiles,
         child: Obx(() {
           final users = controller.discoverProfiles;
+          final followedUsers = controller.followedUsers;
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 118),
             children: [
               Row(
                 children: [
                   const Expanded(
-                    child: Text(
-                      '探索',
-                      style:
-                          TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Lounge',
+                          style: TextStyle(
+                              fontSize: 28, fontWeight: FontWeight.w900),
+                        ),
+                        SizedBox(height: 3),
+                        Text(
+                          '浏览资料、关注、私信，再进入 1v1 连线',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   IconButton.filledTonal(
@@ -43,6 +57,10 @@ class DiscoverPage extends GetView<MatchController> {
               ),
               const SizedBox(height: 12),
               const _DiscoverFilters(),
+              if (followedUsers.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const _FollowedSection(),
+              ],
               const SizedBox(height: 16),
               if (users.isEmpty)
                 _EmptyDiscover(loading: controller.discoverLoading.value)
@@ -53,6 +71,92 @@ class DiscoverPage extends GetView<MatchController> {
         }),
       ),
     );
+  }
+}
+
+class _FollowedSection extends GetView<MatchController> {
+  const _FollowedSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final users = controller.followedUsers;
+      if (users.isEmpty) return const SizedBox.shrink();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  '我的关注',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                ),
+              ),
+              TextButton(
+                onPressed: controller.loadDiscoverProfiles,
+                child: const Text('同步'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 96,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: users.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final user = users[index];
+                final name = _discoverDisplayName(user);
+                final initial = name.characters.first.toUpperCase();
+                return InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => controller.startFromProfile(user),
+                  child: Container(
+                    width: 132,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xcc111419),
+                      border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.12)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundColor: const Color(0xff20c8ff),
+                          foregroundColor: const Color(0xff041018),
+                          child: Text(initial,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w900)),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        Text(
+                          user.interests.take(2).join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      );
+    });
   }
 }
 
@@ -154,6 +258,13 @@ class _DiscoverFilters extends GetView<MatchController> {
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+            Obx(() => _PremiumFilterNotice(
+                  active: controller.premiumFiltersActive,
+                  hasAccess: controller.hasPremiumAccess,
+                  gems: controller.commerceStatus.value?.gemsBalance ?? 0,
+                  onUpgrade: () => controller.switchPage(AppPage.membership),
+                )),
           ],
         ),
       ),
@@ -217,8 +328,10 @@ class _ProfileCard extends GetView<MatchController> {
 
   @override
   Widget build(BuildContext context) {
-    final initial = user.displayName.trim().isNotEmpty
-        ? user.displayName.trim().characters.first.toUpperCase()
+    final followed = controller.followedUserIds.contains(user.id);
+    final displayName = _discoverDisplayName(user);
+    final initial = displayName.trim().isNotEmpty
+        ? displayName.trim().characters.first.toUpperCase()
         : '星';
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -257,7 +370,7 @@ class _ProfileCard extends GetView<MatchController> {
                           children: [
                             Flexible(
                               child: Text(
-                                user.displayName,
+                                displayName,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -303,8 +416,31 @@ class _ProfileCard extends GetView<MatchController> {
               Row(
                 children: [
                   Expanded(
+                    child: _MiniActionButton(
+                      icon: followed
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      label: followed ? '已关注' : '关注',
+                      selected: followed,
+                      onTap: () => controller.toggleFollow(user),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _MiniActionButton(
+                      icon: Icons.mail_outline_rounded,
+                      label: '私信',
+                      onTap: () => controller.openDirectMessage(user),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: controller.loadDiscoverProfiles,
+                      onPressed: () => controller.dismissDiscoverProfile(user),
                       icon: const Icon(Icons.close_rounded),
                       label: const Text('换一批'),
                     ),
@@ -322,6 +458,100 @@ class _ProfileCard extends GetView<MatchController> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+String _discoverDisplayName(UserProfile user) {
+  final name = user.displayName.trim();
+  if (name.isNotEmpty && name != '星球旅人') return name;
+  final id = user.id.trim().toUpperCase();
+  final suffix = id.length > 4 ? id.substring(0, 4) : id;
+  return suffix.isEmpty ? '星球旅人' : '星球旅人 $suffix';
+}
+
+class _PremiumFilterNotice extends StatelessWidget {
+  const _PremiumFilterNotice({
+    required this.active,
+    required this.hasAccess,
+    required this.gems,
+    required this.onUpgrade,
+  });
+
+  final bool active;
+  final bool hasAccess;
+  final int gems;
+  final VoidCallback onUpgrade;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = hasAccess ? const Color(0xff20c8ff) : const Color(0xffffc857);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+        child: Row(
+          children: [
+            Icon(
+              active ? Icons.diamond_outlined : Icons.lock_open_rounded,
+              size: 18,
+              color: color,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                active
+                    ? hasAccess
+                        ? '已启用付费筛选 · $gems Gems 可用'
+                        : '地区/对象筛选需要 Gems 或 Premium'
+                    : '基础随机免费，精准筛选可用 Gems 解锁',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+            if (!hasAccess)
+              TextButton(onPressed: onUpgrade, child: const Text('开通')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniActionButton extends StatelessWidget {
+  const _MiniActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.selected = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 42,
+      child: OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: selected ? const Color(0xff2fd276) : Colors.white,
+          side: BorderSide(
+            color: selected
+                ? const Color(0xff2fd276)
+                : Colors.white.withValues(alpha: 0.24),
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        onPressed: onTap,
+        icon: Icon(icon, size: 18),
+        label: Text(label),
       ),
     );
   }
