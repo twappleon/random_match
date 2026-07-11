@@ -633,14 +633,14 @@ async function loadDiscoverProfiles() {
   discoverLoading.value = true
   try {
     await ensureAuth()
-    const [users] = await Promise.all([
-      fetchDiscoverProfiles(token.value, {
-        region: selectedRegion.value,
-        gender: genderPreference.value
-      }),
-      loadFollowedUsers()
-    ])
+    const users = await fetchDiscoverProfiles(token.value, {
+      region: selectedRegion.value,
+      gender: genderPreference.value
+    })
     discoverProfiles.value = users
+    await loadFollowedUsers().catch(() => {
+      followedUsers.value = []
+    })
   } catch (error) {
     errorText.value = toUserMessage(error)
   } finally {

@@ -648,18 +648,22 @@ class MatchController extends GetxController {
     discoverLoading.value = true;
     try {
       await ensureAuth();
-      final results = await Future.wait([
-        api.fetchDiscoverProfiles(
-          region: selectedRegion.value,
-          gender: genderPreferenceValue,
-        ),
-        api.fetchFollowedUsers(),
-      ]);
-      discoverProfiles.assignAll(results[0]);
-      followedUsers.assignAll(results[1]);
-      followedUserIds
-        ..clear()
-        ..addAll(results[1].map((user) => user.id));
+      final users = await api.fetchDiscoverProfiles(
+        region: selectedRegion.value,
+        gender: genderPreferenceValue,
+      );
+      discoverProfiles.assignAll(users);
+      try {
+        final followed = await api.fetchFollowedUsers();
+        followedUsers.assignAll(followed);
+        followedUserIds
+          ..clear()
+          ..addAll(followed.map((user) => user.id));
+      } catch (_) {
+        // Older deployed backends may not have follow endpoints yet.
+        followedUsers.clear();
+        followedUserIds.clear();
+      }
     } catch (error) {
       showError(error);
     } finally {
