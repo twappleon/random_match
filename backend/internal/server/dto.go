@@ -159,3 +159,15 @@ type createPaymentRequest struct {
 type paymentOrderResponse struct {
 	Order model.PaymentOrder `json:"order"`
 }
+
+type appleIAPVerifyRequest struct {
+	ProductID        string `json:"productId" example:"premium_monthly"`
+	PurchaseID       string `json:"purchaseId" example:"2000000123456789"`
+	VerificationData string `json:"verificationData" example:"eyJhbGciOiJFUzI1NiIs..."`
+	Source           string `json:"source" example:"app_store"`
+}
+
+type appleIAPVerifyResponse struct {
+	Commerce commerceStatusResponse `json:"commerce"`
+	Purchase model.AppleIAPPurchase `json:"purchase"`
+}

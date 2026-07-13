@@ -42,29 +42,35 @@ func (s *Server) commerceStatus(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	user, err := s.userByID(ctx, userID)
+	status, err := s.commerceStatusForUser(ctx, userID)
 	if err != nil {
-		log.Printf("commerce status user failed user_id=%s err=%v", userID, err)
+		log.Printf("commerce status failed user_id=%s err=%v", userID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "commerce status failed"})
 		return
+	}
+	c.JSON(http.StatusOK, status)
+}
+
+func (s *Server) commerceStatusForUser(ctx context.Context, userID string) (commerceStatusResponse, error) {
+	user, err := s.userByID(ctx, userID)
+	if err != nil {
+		return commerceStatusResponse{}, err
 	}
 	member := isActiveMember(user, time.Now().UTC())
 	usage, err := s.matchUsage(ctx, userID, member)
 	if err != nil {
-		log.Printf("commerce status usage failed user_id=%s err=%v", userID, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "commerce status failed"})
-		return
+		return commerceStatusResponse{}, err
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"isMember":            member,
-		"membershipPlan":      user.MembershipPlan,
-		"membershipExpiresAt": user.MembershipExpiresAt,
-		"dailyLimit":          usage.DailyLimit,
-		"dailyUsed":           usage.DailyUsed,
-		"dailyRemaining":      usage.DailyRemaining,
-		"priorityQueue":       member,
-		"gemsBalance":         user.GemsBalance,
-	})
+	return commerceStatusResponse{
+		IsMember:            member,
+		MembershipPlan:      user.MembershipPlan,
+		MembershipExpiresAt: user.MembershipExpiresAt,
+		DailyLimit:          usage.DailyLimit,
+		DailyUsed:           usage.DailyUsed,
+		DailyRemaining:      usage.DailyRemaining,
+		PriorityQueue:       member,
+		GemsBalance:         user.GemsBalance,
+	}, nil
 }
 
 func (s *Server) createPaymentOrder(c *gin.Context) {

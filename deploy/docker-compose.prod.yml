@@ -35,6 +35,14 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
+      APPLE_BUNDLE_ID: ${APPLE_BUNDLE_ID:-com.danawang.randommatch}
+      APPLE_IAP_PRODUCT_ID: ${APPLE_IAP_PRODUCT_ID:-premium_monthly}
+      APPLE_IAP_ISSUER_ID: ${APPLE_IAP_ISSUER_ID:-}
+      APPLE_IAP_KEY_ID: ${APPLE_IAP_KEY_ID:-}
+      APPLE_IAP_PRIVATE_KEY: ${APPLE_IAP_PRIVATE_KEY:-}
+      APPLE_IAP_PRIVATE_KEY_PATH: ${APPLE_IAP_PRIVATE_KEY_PATH:-}
+      APPLE_IAP_ENVIRONMENT: ${APPLE_IAP_ENVIRONMENT:-Production}
+      APPLE_IAP_ALLOW_UNVERIFIED: ${APPLE_IAP_ALLOW_UNVERIFIED:-false}
     volumes:
       - snapshots_data:/app/snapshots
     depends_on:

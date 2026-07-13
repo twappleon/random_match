@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:get/get.dart' hide navigator;
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -32,6 +33,11 @@ const interestSuggestions = [
   '深夜电台',
 ];
 const languageOptions = ['zh', 'en', 'ja', 'ko', 'es'];
+const premiumMonthlyProductId = 'premium_monthly';
+const allowMockPayments = bool.fromEnvironment(
+  'ALLOW_MOCK_PAYMENTS',
+  defaultValue: false,
+);
 
 class MatchController extends GetxController {
   MatchController({RandomMatchApi? api}) : api = api ?? RandomMatchApi();
@@ -70,6 +76,8 @@ class MatchController extends GetxController {
   final ageConfirmed = false.obs;
   final agePromptRevision = 0.obs;
   final remoteVideoTick = 0.obs;
+  final iapAvailable = false.obs;
+  final iapReady = false.obs;
 
   final stats = const RuntimeStats(online: 0, waiting: 0, chatting: 0).obs;
   final profile = Rxn<UserProfile>();
@@ -91,6 +99,8 @@ class MatchController extends GetxController {
   MediaStream? _localStream;
   Timer? _statsTimer;
   StreamSubscription<String>? _pushTokenSubscription;
+  StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
+  ProductDetails? _premiumProduct;
   bool _remoteDescriptionReady = false;
   bool _pushInitialized = false;
   final List<RTCIceCandidate> _pendingCandidates = [];
@@ -110,12 +120,14 @@ class MatchController extends GetxController {
     await refreshStats();
     await loadProfile();
     unawaited(setupPushNotifications());
+    unawaited(initInAppPurchase());
   }
 
   @override
   void onClose() {
     _statsTimer?.cancel();
     _pushTokenSubscription?.cancel();
+    _purchaseSubscription?.cancel();
     _socket?.sink.close();
     _peer?.close();
     _localStream?.dispose();
@@ -127,6 +139,35 @@ class MatchController extends GetxController {
     unawaited(localRenderer.dispose());
     unawaited(remoteRenderer.dispose());
     super.onClose();
+  }
+
+  Future<void> initInAppPurchase() async {
+    if (!Platform.isIOS) return;
+    final iap = InAppPurchase.instance;
+    _purchaseSubscription ??= iap.purchaseStream.listen(
+      handlePurchaseUpdates,
+      onError: (error) => showError(error),
+    );
+    try {
+      iapAvailable.value = await iap.isAvailable();
+      if (!iapAvailable.value) return;
+      final response =
+          await iap.queryProductDetails({premiumMonthlyProductId});
+      if (response.error != null) {
+        Get.snackbar('IAP 尚未就绪', response.error!.message,
+            snackPosition: SnackPosition.BOTTOM);
+        return;
+      }
+      if (response.productDetails.isEmpty) {
+        Get.snackbar('IAP 商品未找到', '请先在 App Store Connect 建立 premium_monthly',
+            snackPosition: SnackPosition.BOTTOM);
+        return;
+      }
+      _premiumProduct = response.productDetails.first;
+      iapReady.value = true;
+    } catch (error) {
+      showError(error);
+    }
   }
 
   Future<void> refreshStats() async {
@@ -767,15 +808,83 @@ class MatchController extends GetxController {
     paymentLoading.value = true;
     try {
       await ensureAuth();
-      final order = await api.createPaymentOrder(plan: plan);
-      await api.confirmPaymentOrder(order.id);
-      await loadCommerceStatus();
-      Get.snackbar('会员已开通', '已加入优先队列，并赠送 300 Gems',
-          snackPosition: SnackPosition.BOTTOM);
+      if (Platform.isIOS && !allowMockPayments) {
+        await buyAppleMembership();
+        return;
+      }
+      await buyMockMembership(plan: plan);
     } catch (error) {
       showError(error);
-    } finally {
       paymentLoading.value = false;
+    } finally {
+      if (!Platform.isIOS || allowMockPayments) {
+        paymentLoading.value = false;
+      }
+    }
+  }
+
+  Future<void> buyAppleMembership() async {
+    await initInAppPurchase();
+    final product = _premiumProduct;
+    if (!iapAvailable.value || product == null) {
+      throw Exception('Apple IAP 尚未就绪，请确认 App Store Connect 商品 premium_monthly 已建立');
+    }
+    final param = PurchaseParam(productDetails: product);
+    final started = await InAppPurchase.instance.buyNonConsumable(
+      purchaseParam: param,
+    );
+    if (!started) {
+      paymentLoading.value = false;
+      throw Exception('无法启动 Apple 购买流程');
+    }
+  }
+
+  Future<void> buyMockMembership({String plan = 'premium_monthly'}) async {
+    final order = await api.createPaymentOrder(plan: plan);
+    await api.confirmPaymentOrder(order.id);
+    await loadCommerceStatus();
+    Get.snackbar('会员已开通', '已加入优先队列，并赠送 300 Gems',
+        snackPosition: SnackPosition.BOTTOM);
+  }
+
+  Future<void> handlePurchaseUpdates(List<PurchaseDetails> purchases) async {
+    for (final purchase in purchases) {
+      if (purchase.productID != premiumMonthlyProductId) continue;
+      if (purchase.status == PurchaseStatus.pending) {
+        paymentLoading.value = true;
+        continue;
+      }
+      if (purchase.status == PurchaseStatus.error) {
+        paymentLoading.value = false;
+        showError(purchase.error?.message ?? 'Apple 购买失败');
+        continue;
+      }
+      if (purchase.status == PurchaseStatus.canceled) {
+        paymentLoading.value = false;
+        continue;
+      }
+      if (purchase.status == PurchaseStatus.purchased ||
+          purchase.status == PurchaseStatus.restored) {
+        try {
+          await ensureAuth();
+          commerceStatus.value = await api.verifyApplePurchase(
+            productId: purchase.productID,
+            purchaseId: purchase.purchaseID ?? '',
+            verificationData:
+                purchase.verificationData.serverVerificationData,
+            source: purchase.verificationData.source,
+          );
+          Get.snackbar('会员已开通', 'Apple IAP 验证通过，权益已同步',
+              snackPosition: SnackPosition.BOTTOM);
+        } catch (error) {
+          showError(error);
+        } finally {
+          if (purchase.pendingCompletePurchase) {
+            await InAppPurchase.instance.completePurchase(purchase);
+          }
+          paymentLoading.value = false;
+        }
+      }
     }
   }
 

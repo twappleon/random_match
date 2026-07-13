@@ -93,3 +93,15 @@ type PaymentOrder struct {
 	CreatedAt time.Time  `bson:"createdAt" json:"createdAt"`
 	PaidAt    *time.Time `bson:"paidAt,omitempty" json:"paidAt,omitempty"`
 }
+
+type AppleIAPPurchase struct {
+	ID                    string    `bson:"_id" json:"id"`
+	UserID                string    `bson:"userId" json:"userId"`
+	ProductID             string    `bson:"productId" json:"productId"`
+	TransactionID         string    `bson:"transactionId" json:"transactionId"`
+	OriginalTransactionID string    `bson:"originalTransactionId,omitempty" json:"originalTransactionId,omitempty"`
+	Environment           string    `bson:"environment" json:"environment"`
+	ExpiresAt             time.Time `bson:"expiresAt" json:"expiresAt"`
+	VerifiedAt            time.Time `bson:"verifiedAt" json:"verifiedAt"`
+	Source                string    `bson:"source,omitempty" json:"source,omitempty"`
+}

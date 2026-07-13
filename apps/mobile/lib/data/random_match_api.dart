@@ -140,6 +140,26 @@ class RandomMatchApi {
     );
   }
 
+  Future<CommerceStatus> verifyApplePurchase({
+    required String productId,
+    required String purchaseId,
+    required String verificationData,
+    required String source,
+  }) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/iap/apple/verify',
+      data: {
+        'productId': productId,
+        'purchaseId': purchaseId,
+        'verificationData': verificationData,
+        'source': source,
+      },
+      options: _authOptions,
+    );
+    return CommerceStatus.fromJson(
+        res.data?['commerce'] as Map<String, dynamic>? ?? {});
+  }
+
   Future<void> reportUser(String userId) async {
     await _dio.post<dynamic>(
       '/api/v1/users/$userId/report',
