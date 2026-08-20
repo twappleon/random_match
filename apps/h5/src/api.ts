@@ -19,6 +19,8 @@ export interface UserProfile {
   bio?: string
   interests?: string[]
   region?: string
+  distanceKm?: number
+  locationUpdatedAt?: string
   gender?: string
   language?: string
   trustBadge?: boolean
@@ -88,6 +90,23 @@ export async function updateProfile(token: string, payload: {
   if (!res.ok) throw new Error('保存资料失败')
   const data = await res.json()
   return data.user
+}
+
+export async function updateLocation(token: string, payload: {
+  latitude: number
+  longitude: number
+  accuracy?: number
+}): Promise<{ status: string; locationUpdatedAt: string }> {
+  const res = await fetch(`${apiBase()}/api/v1/me/location`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+  if (!res.ok) throw new Error('更新位置失败')
+  return res.json()
 }
 
 export async function joinMatch(token: string, payload: {

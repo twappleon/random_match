@@ -77,6 +77,17 @@ type updateProfileRequest struct {
 	AgeConfirmed bool     `json:"ageConfirmed" example:"true"`
 }
 
+type updateLocationRequest struct {
+	Latitude  float64 `json:"latitude" example:"25.033"`
+	Longitude float64 `json:"longitude" example:"121.5654"`
+	Accuracy  float64 `json:"accuracy,omitempty" example:"35"`
+}
+
+type updateLocationResponse struct {
+	Status            string    `json:"status" example:"saved"`
+	LocationUpdatedAt time.Time `json:"locationUpdatedAt"`
+}
+
 type profileResponse struct {
 	User model.UserProfile `json:"user"`
 }

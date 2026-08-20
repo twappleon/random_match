@@ -9,6 +9,9 @@ type User struct {
 	Bio                 string     `bson:"bio,omitempty" json:"bio,omitempty"`
 	Interests           []string   `bson:"interests,omitempty" json:"interests,omitempty"`
 	Region              string     `bson:"region,omitempty" json:"region,omitempty"`
+	Latitude            *float64   `bson:"latitude,omitempty" json:"-"`
+	Longitude           *float64   `bson:"longitude,omitempty" json:"-"`
+	LocationUpdatedAt   *time.Time `bson:"locationUpdatedAt,omitempty" json:"locationUpdatedAt,omitempty"`
 	Gender              string     `bson:"gender,omitempty" json:"gender,omitempty"`
 	Language            string     `bson:"language,omitempty" json:"language,omitempty"`
 	GemsBalance         int        `bson:"gemsBalance,omitempty" json:"gemsBalance,omitempty"`
@@ -27,6 +30,8 @@ type UserProfile struct {
 	Bio                 string     `bson:"bio,omitempty" json:"bio,omitempty"`
 	Interests           []string   `bson:"interests,omitempty" json:"interests,omitempty"`
 	Region              string     `bson:"region,omitempty" json:"region,omitempty"`
+	DistanceKm          *float64   `bson:"-" json:"distanceKm,omitempty"`
+	LocationUpdatedAt   *time.Time `bson:"locationUpdatedAt,omitempty" json:"locationUpdatedAt,omitempty"`
 	Gender              string     `bson:"gender,omitempty" json:"gender,omitempty"`
 	Language            string     `bson:"language,omitempty" json:"language,omitempty"`
 	TrustBadge          bool       `bson:"-" json:"trustBadge"`

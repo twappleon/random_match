@@ -57,7 +57,7 @@
           <div class="verified-row"><span></span> 真人认证 · 刚刚在线</div>
           <div class="recommend-person">
             <strong>{{ currentRecommendation.name }}, {{ currentRecommendation.age }}</strong>
-            <em>{{ currentRecommendation.distance }}</em>
+            <em>{{ recommendationDistanceText }}</em>
           </div>
           <div class="tags">
             <span v-for="item in currentRecommendation.tags" :key="item">{{ item }}</span>
@@ -71,7 +71,7 @@
           <article v-for="user in nearbyPeople" :key="user.name" class="social-row" @click="showProfileSheet(user.name)">
             <div class="avatar">{{ user.name.slice(0, 1) }}</div>
             <div><strong>{{ user.name }}, {{ user.age }}</strong><span>共同兴趣：{{ user.tags.join('、') }}</span></div>
-            <b>{{ user.distance }}</b>
+            <b>{{ personDistanceText(user) }}</b>
           </article>
         </section>
         <section v-else class="social-list">
@@ -394,7 +394,7 @@
                   {{ user.displayName || '星球旅人' }}
                   <span v-if="user.trustBadge" class="trust-badge">✓</span>
                 </strong>
-                <span>{{ regionLabel(user.region || 'global') }} · {{ user.bio || '愿意认识新朋友' }}</span>
+                <span>{{ discoverMetaText(user) }}</span>
               </div>
             </div>
             <div class="tags">
@@ -571,13 +571,13 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { anonymousAuth, blockUser, confirmPaymentOrder, createPaymentOrder, fetchBlockedUsers, fetchCommerceStatus, fetchDiscoverProfiles, fetchFollowedUsers, fetchProfile, fetchStats, followUser, iceServers, joinMatch, leaveMatch, reportUser, savePushSubscription, sendDirectMessage, sendPushTest, unblockUser, unfollowUser, updateProfile, uploadMatchSnapshot, vapidPublicKey, verifySession, type BlockedUser, type CommerceStatus, type MatchMode, type UserProfile, wsURL } from './api'
+import { anonymousAuth, blockUser, confirmPaymentOrder, createPaymentOrder, fetchBlockedUsers, fetchCommerceStatus, fetchDiscoverProfiles, fetchFollowedUsers, fetchProfile, fetchStats, followUser, iceServers, joinMatch, leaveMatch, reportUser, savePushSubscription, sendDirectMessage, sendPushTest, unblockUser, unfollowUser, updateLocation, updateProfile, uploadMatchSnapshot, vapidPublicKey, verifySession, type BlockedUser, type CommerceStatus, type MatchMode, type UserProfile, wsURL } from './api'
 import { initAnalytics } from './firebase'
 
 type Status = 'idle' | 'waiting' | 'matched'
 type Page = 'recommend' | 'square' | 'video' | 'messages' | 'me' | 'discover' | 'profile' | 'membership' | 'guide'
 type LabeledTab = { id: string; label: string }
-type MockPerson = { name: string; age: number; distance: string; tags: string[] }
+type MockPerson = { name: string; age: number; distance: string; tags: string[]; distanceKm?: number }
 type FeedItem = { id: string; scope: string; name: string; meta: string; copy: string; likes: number; comments: number; photos?: boolean }
 type MessagePreview = { scope: string; name: string; text: string; time: string }
 type ChatMessage = {
@@ -633,6 +633,9 @@ const selectedRegion = ref('global')
 const genderPreference = ref('everyone')
 const stats = ref({ online: 0, waiting: 0, chatting: 0 })
 const statsTimer = ref<number | null>(null)
+const locationTimer = ref<number | null>(null)
+const locationPrompted = ref(false)
+const locationStatus = ref<'idle' | 'active' | 'blocked' | 'unsupported' | 'failed'>('idle')
 const token = ref(localStorage.getItem('token') ?? '')
 const ws = ref<WebSocket | null>(null)
 const wsHeartbeatTimer = ref<number | null>(null)
@@ -691,7 +694,11 @@ const nextCameraText = computed(() => cameraFacing.value === 'user' ? '后镜头
 const profileInitial = computed(() => (profileForm.value.displayName || '星').trim().slice(0, 1).toUpperCase())
 const peerInitial = computed(() => (peerProfile.value?.displayName || '星').trim().slice(0, 1).toUpperCase())
 const peerDisplayName = computed(() => peerProfile.value?.displayName || '对方资料载入中')
-const peerBio = computed(() => peerProfile.value?.bio || '对方暂时没有填写简介')
+const peerBio = computed(() => {
+  const distance = peerProfile.value ? profileDistanceText(peerProfile.value) : ''
+  const bio = peerProfile.value?.bio || '对方暂时没有填写简介'
+  return distance ? `${distance} · ${bio}` : bio
+})
 const peerInterests = computed(() => peerProfile.value?.interests?.length ? peerProfile.value.interests : ['随机视讯'])
 const membershipTitle = computed(() => commerceStatus.value?.isMember ? '会员已开启' : '免费匹配额度')
 const membershipText = computed(() => {
@@ -768,6 +775,7 @@ const messagePreviews: MessagePreview[] = [
 const currentRecommendation = computed(() => recommendations.value[recommendationIndex.value % recommendations.value.length])
 const visibleFeedItems = computed(() => feedItems.value.filter((item) => squareTab.value === 'recommend' ? item.scope === 'recommend' : item.scope === squareTab.value))
 const visibleMessages = computed(() => messagePreviews.filter((item) => item.scope.split(' ').includes(messageTab.value)))
+const recommendationDistanceText = computed(() => formatDistance(currentRecommendation.value.distanceKm, currentRecommendation.value.distance))
 const visibleSettings = computed(() => {
   if (meTab.value === 'privacy') {
     return [
@@ -871,12 +879,75 @@ async function enterClientApp() {
     clientEntered.value = true
     localStorage.setItem('clientEntered', 'true')
     await switchPage('recommend')
+    startLocationUpdates(true)
     showClientSheet('欢迎来到 Findu', '推荐、广场、视频、消息和我的页面已开启。')
   } catch (error) {
     errorText.value = toUserMessage(error)
   } finally {
     authLoading.value = false
   }
+}
+
+function startLocationUpdates(promptUser = false) {
+  if (locationTimer.value !== null) return
+  void updateCurrentLocation(promptUser)
+  locationTimer.value = window.setInterval(() => {
+    void updateCurrentLocation(false)
+  }, 60000)
+}
+
+function stopLocationUpdates() {
+  if (locationTimer.value !== null) {
+    window.clearInterval(locationTimer.value)
+    locationTimer.value = null
+  }
+}
+
+async function updateCurrentLocation(promptUser = false) {
+  if (!clientEntered.value || !navigator.geolocation) {
+    locationStatus.value = navigator.geolocation ? locationStatus.value : 'unsupported'
+    return
+  }
+  if (promptUser) locationPrompted.value = true
+  try {
+    await ensureAuth()
+    const position = await getCurrentPosition()
+    await updateLocation(token.value, {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      accuracy: position.coords.accuracy
+    })
+    locationStatus.value = 'active'
+    if (activePage.value === 'discover') void loadDiscoverProfiles().catch(() => undefined)
+  } catch (error) {
+    if (isGeolocationPermissionDenied(error)) {
+      locationStatus.value = 'blocked'
+      stopLocationUpdates()
+      if (promptUser || !locationPrompted.value) errorText.value = '定位权限未开启，其他用户暂时看不到与你的距离'
+      locationPrompted.value = true
+      return
+    }
+    locationStatus.value = 'failed'
+  }
+}
+
+function isGeolocationPermissionDenied(error: unknown) {
+  return Boolean(
+    error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    Number((error as { code?: unknown }).code) === 1
+  )
+}
+
+function getCurrentPosition() {
+  return new Promise<GeolocationPosition>((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: false,
+      maximumAge: 45000,
+      timeout: 10000
+    })
+  })
 }
 
 function showClientSheet(title: string, body: string) {
@@ -909,6 +980,27 @@ function greetRecommendation() {
 
 function showProfileSheet(name: string) {
   showClientSheet(name, '真人认证 · 共同兴趣 4 个 · 支持关注、私聊和视频邀请。')
+}
+
+function formatDistance(distanceKm: number | undefined, fallback = '距离未知') {
+  if (typeof distanceKm !== 'number' || !Number.isFinite(distanceKm)) return fallback
+  if (distanceKm < 1) return `${Math.max(50, Math.round(distanceKm * 1000 / 50) * 50)} m`
+  if (distanceKm < 10) return `${distanceKm.toFixed(1)} km`
+  return `${Math.round(distanceKm)} km`
+}
+
+function personDistanceText(user: MockPerson) {
+  return formatDistance(user.distanceKm, user.distance)
+}
+
+function profileDistanceText(user: UserProfile) {
+  return formatDistance(user.distanceKm, '')
+}
+
+function discoverMetaText(user: UserProfile) {
+  const distance = profileDistanceText(user)
+  const prefix = distance ? `${distance} · ` : `${regionLabel(user.region || 'global')} · `
+  return `${prefix}${user.bio || '愿意认识新朋友'}`
 }
 
 function likeFeedItem(id: string) {
@@ -954,6 +1046,7 @@ function clearToken() {
 }
 
 function logoutClient() {
+  stopLocationUpdates()
   closeSocket()
   stopLocalMedia()
   resetCall()
@@ -962,6 +1055,8 @@ function logoutClient() {
   localStorage.removeItem('clientEntered')
   activePage.value = 'video'
   authMode.value = 'login'
+  locationStatus.value = 'idle'
+  locationPrompted.value = false
   chatOpen.value = false
   sheetOpen.value = false
   errorText.value = '已登出'
@@ -1976,6 +2071,7 @@ function formatDate(value: string) {
 
 onBeforeUnmount(() => {
   stopStatsPolling()
+  stopLocationUpdates()
   stopSocketHeartbeat()
   clearChatToast()
   window.removeEventListener('resize', ensurePreviewPosition)
@@ -1992,5 +2088,6 @@ onMounted(() => {
   startStatsPolling()
   void loadProfile()
   void setupPushNotifications(false)
+  if (clientEntered.value) startLocationUpdates(false)
 })
 </script>

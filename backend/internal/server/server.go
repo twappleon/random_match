@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"log"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -58,6 +59,7 @@ func (s *Server) Routes() http.Handler {
 	auth.GET("/auth/session", s.authSession)
 	auth.GET("/me", s.getProfile)
 	auth.PUT("/me", s.updateProfile)
+	auth.PUT("/me/location", s.updateLocation)
 	auth.GET("/discover/profiles", s.discoverProfiles)
 	auth.POST("/match/join", s.joinMatch)
 	auth.POST("/match/leave", s.leaveMatch)
@@ -245,6 +247,50 @@ func (s *Server) updateProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"user": profile})
 }
 
+// updateLocation godoc
+//
+//	@Summary		Update current user location
+//	@Description	Stores the current user's latest coarse device coordinates. Other users only receive computed distance, never raw coordinates.
+//	@Tags			profile
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			request	body		updateLocationRequest	true	"Location fields"
+//	@Success		200		{object}	updateLocationResponse
+//	@Failure		400		{object}	errorResponse
+//	@Failure		401		{object}	errorResponse
+//	@Failure		500		{object}	errorResponse
+//	@Router			/api/v1/me/location [put]
+func (s *Server) updateLocation(c *gin.Context) {
+	userID := userIDFromContext(c)
+	var req updateLocationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
+		return
+	}
+	if !validCoordinates(req.Latitude, req.Longitude) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid location"})
+		return
+	}
+
+	now := time.Now().UTC()
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+	_, err := s.db.DB.Collection("users").UpdateOne(ctx, bson.M{"_id": userID}, bson.M{"$set": bson.M{
+		"latitude":          req.Latitude,
+		"longitude":         req.Longitude,
+		"locationAccuracy":  math.Max(0, req.Accuracy),
+		"locationUpdatedAt": now,
+		"updatedAt":         now,
+	}})
+	if err != nil {
+		log.Printf("location update failed user_id=%s err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "update location failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "saved", "locationUpdatedAt": now})
+}
+
 // stats godoc
 //
 //	@Summary		Runtime usage stats
@@ -292,6 +338,9 @@ func (s *Server) discoverProfiles(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
+	var viewer model.User
+	_ = s.db.DB.Collection("users").FindOne(ctx, bson.M{"_id": userID}).Decode(&viewer)
+
 	blockedIDs, err := s.blockedUserIDs(ctx, userID)
 	if err != nil {
 		log.Printf("discover blocks failed user_id=%s err=%v", userID, err)
@@ -329,7 +378,7 @@ func (s *Server) discoverProfiles(c *gin.Context) {
 			log.Printf("discover decode failed user_id=%s err=%v", userID, err)
 			continue
 		}
-		users = append(users, profileFromUser(user))
+		users = append(users, profileFromUserForViewer(user, viewer))
 	}
 	if err := cursor.Err(); err != nil {
 		log.Printf("discover cursor failed user_id=%s err=%v", userID, err)
@@ -457,18 +506,20 @@ func (s *Server) joinMatch(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"error": "blocked match skipped, retry"})
 		return
 	}
-	selfProfile, err := s.userProfile(ctx, userID)
+	selfUser, err := s.userByID(ctx, userID)
 	if err != nil {
 		log.Printf("match self profile failed user_id=%s err=%v", userID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
 		return
 	}
-	partnerProfile, err := s.userProfile(ctx, partner.UserID)
+	partnerUser, err := s.userByID(ctx, partner.UserID)
 	if err != nil {
 		log.Printf("match partner profile failed user_id=%s peer_id=%s err=%v", userID, partner.UserID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "match failed"})
 		return
 	}
+	selfProfile := profileFromUserForViewer(selfUser, partnerUser)
+	partnerProfile := profileFromUserForViewer(partnerUser, selfUser)
 	roomID := newID()
 	log.Printf("match paired room_id=%s user_id=%s peer_id=%s mode=%s region=%s", roomID, userID, partner.UserID, req.Mode, req.Region)
 	s.hub.Pair(userID, partner.UserID)
@@ -712,6 +763,8 @@ func (s *Server) listFollowedUsers(c *gin.Context) {
 	userID := userIDFromContext(c)
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
+	var viewer model.User
+	_ = s.db.DB.Collection("users").FindOne(ctx, bson.M{"_id": userID}).Decode(&viewer)
 	cursor, err := s.db.DB.Collection("user_follows").Find(
 		ctx,
 		bson.M{"userId": userID},
@@ -730,11 +783,11 @@ func (s *Server) listFollowedUsers(c *gin.Context) {
 		if err := cursor.Decode(&follow); err != nil {
 			continue
 		}
-		profile, err := s.userProfile(ctx, follow.FollowID)
+		user, err := s.userByID(ctx, follow.FollowID)
 		if err != nil {
 			continue
 		}
-		users = append(users, profile)
+		users = append(users, profileFromUserForViewer(user, viewer))
 	}
 	if err := cursor.Err(); err != nil {
 		log.Printf("list follows cursor failed user_id=%s err=%v", userID, err)
@@ -1022,8 +1075,13 @@ func (s *Server) userProfile(ctx context.Context, userID string) (model.UserProf
 }
 
 func profileFromUser(user model.User) model.UserProfile {
+	return profileFromUserForViewer(user, model.User{})
+}
+
+func profileFromUserForViewer(user model.User, viewer model.User) model.UserProfile {
 	region := normalizeRegion(user.Region)
 	gender := normalizeProfileGender(user.Gender)
+	distanceKm := distanceBetweenUsersKm(viewer, user)
 	return model.UserProfile{
 		ID:                  user.ID,
 		DisplayName:         user.DisplayName,
@@ -1031,6 +1089,8 @@ func profileFromUser(user model.User) model.UserProfile {
 		Bio:                 user.Bio,
 		Interests:           user.Interests,
 		Region:              region,
+		DistanceKm:          distanceKm,
+		LocationUpdatedAt:   user.LocationUpdatedAt,
 		Gender:              gender,
 		Language:            normalizeLanguage(user.Language),
 		TrustBadge:          len(user.Interests) >= 3 && user.AgeConfirmed,
@@ -1039,6 +1099,45 @@ func profileFromUser(user model.User) model.UserProfile {
 		MembershipExpiresAt: user.MembershipExpiresAt,
 		IsMember:            isActiveMember(user, time.Now().UTC()),
 	}
+}
+
+func validCoordinates(latitude, longitude float64) bool {
+	return !math.IsNaN(latitude) &&
+		!math.IsNaN(longitude) &&
+		!math.IsInf(latitude, 0) &&
+		!math.IsInf(longitude, 0) &&
+		latitude >= -90 &&
+		latitude <= 90 &&
+		longitude >= -180 &&
+		longitude <= 180
+}
+
+func distanceBetweenUsersKm(viewer, user model.User) *float64 {
+	if viewer.ID == "" || user.ID == "" || viewer.ID == user.ID {
+		return nil
+	}
+	if viewer.Latitude == nil || viewer.Longitude == nil || user.Latitude == nil || user.Longitude == nil {
+		return nil
+	}
+	distance := haversineKm(*viewer.Latitude, *viewer.Longitude, *user.Latitude, *user.Longitude)
+	rounded := math.Round(distance*10) / 10
+	return &rounded
+}
+
+func haversineKm(lat1, lon1, lat2, lon2 float64) float64 {
+	const earthRadiusKm = 6371.0
+	toRad := func(value float64) float64 {
+		return value * math.Pi / 180
+	}
+	dLat := toRad(lat2 - lat1)
+	dLon := toRad(lon2 - lon1)
+	rLat1 := toRad(lat1)
+	rLat2 := toRad(lat2)
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(rLat1)*math.Cos(rLat2)*math.Sin(dLon/2)*math.Sin(dLon/2)
+	a = math.Min(1, math.Max(0, a))
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+	return earthRadiusKm * c
 }
 
 func (s *Server) isBlockedEither(ctx context.Context, userID, peerID string) (bool, error) {
