@@ -241,6 +241,7 @@
             {{ row.label }} <span>{{ row.value }}</span>
           </button>
         </section>
+        <button class="logout-button" type="button" @click="logoutClient">登出</button>
       </div>
     </section>
 
@@ -950,6 +951,23 @@ function openChatFromToast() {
 function clearToken() {
   token.value = ''
   localStorage.removeItem('token')
+}
+
+function logoutClient() {
+  closeSocket()
+  stopLocalMedia()
+  resetCall()
+  clearToken()
+  clientEntered.value = false
+  localStorage.removeItem('clientEntered')
+  activePage.value = 'video'
+  authMode.value = 'login'
+  chatOpen.value = false
+  sheetOpen.value = false
+  errorText.value = '已登出'
+  window.setTimeout(() => {
+    if (errorText.value === '已登出') errorText.value = ''
+  }, 1800)
 }
 
 async function ensureAuth() {

@@ -502,6 +502,15 @@ button {
   color: rgba(255, 255, 255, 0.58);
 }
 
+.logout-button {
+  min-height: 48px;
+  border: 1px solid rgba(255, 92, 116, 0.36);
+  border-radius: 8px;
+  background: rgba(255, 92, 116, 0.14);
+  color: #ffdada;
+  font-weight: 950;
+}
+
 .client-sheet-overlay {
   position: fixed;
   inset: 0;
