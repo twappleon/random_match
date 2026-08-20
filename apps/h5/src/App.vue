@@ -1,6 +1,117 @@
 <template>
   <main class="screen">
-    <section v-show="activePage === 'video'" ref="stage" class="call-stage page">
+    <section v-if="!clientEntered" class="page page-shell auth-page">
+      <div class="auth-card" aria-label="login and age confirmation">
+        <div class="auth-brand">
+          <span>Findu</span>
+          <strong>18+ 真人兴趣配对</strong>
+          <p>完成登录与年龄确认后，进入推荐、广场、视频、消息和我的。</p>
+        </div>
+        <div class="auth-tabs">
+          <button type="button" :class="{ active: authMode === 'login' }" @click="authMode = 'login'">登录</button>
+          <button type="button" :class="{ active: authMode === 'register' }" @click="authMode = 'register'">注册</button>
+        </div>
+        <div class="auth-form">
+          <label v-if="authMode === 'register'">
+            昵称
+            <input v-model.trim="profileForm.displayName" maxlength="24" placeholder="Leon" />
+          </label>
+          <label>
+            手机号 / 邮箱
+            <input v-model.trim="authAccount" autocomplete="email" placeholder="leon@example.com" />
+          </label>
+          <label>
+            {{ authMode === 'login' ? '密码' : '设置密码' }}
+            <input v-model="authPassword" type="password" autocomplete="current-password" placeholder="••••••••" />
+          </label>
+          <label class="age-check" :class="{ attention: ageCheckAttention }">
+            <input v-model="profileForm.ageConfirmed" type="checkbox" />
+            <span>我确认已满 18 岁，并同意社区规则与隐私政策。</span>
+          </label>
+          <button class="auth-submit" type="button" :disabled="authLoading" @click="enterClientApp">
+            {{ authLoading ? '进入中' : authMode === 'login' ? '登录并进入' : '创建账号' }}
+          </button>
+          <div class="auth-alt">
+            <button type="button" @click="showClientSheet('验证码登录', '输入手机号或邮箱后，系统会发送一次性验证码。')">验证码登录</button>
+            <button type="button" @click="showClientSheet('第三方注册', '第三方注册后仍需完成 18+ 确认，才能进入核心社交功能。')">Google / Apple</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section v-show="clientEntered && activePage === 'recommend'" class="page page-shell">
+      <div class="social-page" aria-label="smart recommendations">
+        <header class="social-head">
+          <div>
+            <strong>推荐</strong>
+            <span>真人认证、共同兴趣和在线状态优先</span>
+          </div>
+          <button type="button" @click="showClientSheet('筛选偏好', '可设置地区、距离、语言、共同兴趣和真人状态。精准筛选会使用 Gems 或会员权益。')">筛选</button>
+        </header>
+        <div class="secondary-menu">
+          <button type="button" :class="{ active: recommendTab === 'smart' }" @click="recommendTab = 'smart'">智能推荐</button>
+          <button type="button" :class="{ active: recommendTab === 'nearby' }" @click="recommendTab = 'nearby'">附近</button>
+          <button type="button" :class="{ active: recommendTab === 'new' }" @click="recommendTab = 'new'">新人</button>
+        </div>
+        <article v-if="recommendTab === 'smart'" class="recommend-hero">
+          <div class="verified-row"><span></span> 真人认证 · 刚刚在线</div>
+          <div class="recommend-person">
+            <strong>{{ currentRecommendation.name }}, {{ currentRecommendation.age }}</strong>
+            <em>{{ currentRecommendation.distance }}</em>
+          </div>
+          <div class="tags">
+            <span v-for="item in currentRecommendation.tags" :key="item">{{ item }}</span>
+          </div>
+          <div class="action-row">
+            <button type="button" @click="skipRecommendation">跳过</button>
+            <button class="primary-action" type="button" @click="greetRecommendation">打招呼</button>
+          </div>
+        </article>
+        <section v-else-if="recommendTab === 'nearby'" class="social-list">
+          <article v-for="user in nearbyPeople" :key="user.name" class="social-row" @click="showProfileSheet(user.name)">
+            <div class="avatar">{{ user.name.slice(0, 1) }}</div>
+            <div><strong>{{ user.name }}, {{ user.age }}</strong><span>共同兴趣：{{ user.tags.join('、') }}</span></div>
+            <b>{{ user.distance }}</b>
+          </article>
+        </section>
+        <section v-else class="social-list">
+          <article class="feed-item">
+            <div class="feed-author"><div class="avatar">H</div><div><strong>Hana, 22</strong><span>真人认证中 · 6 分钟前加入</span></div></div>
+            <p>想找人练口语，也喜欢城市夜景和独立音乐。</p>
+            <div class="feed-actions"><button @click="showClientSheet('打招呼', 'Hi Hana，我也喜欢独立音乐。今晚有空聊 10 分钟吗？')">打招呼</button><button @click="showProfileSheet('Hana')">查看主页</button><button @click="showClientSheet('已跳过', '新人推荐会继续结合兴趣、审核状态和拉黑关系更新。')">跳过</button></div>
+          </article>
+        </section>
+      </div>
+    </section>
+
+    <section v-show="clientEntered && activePage === 'square'" class="page page-shell">
+      <div class="social-page" aria-label="public square">
+        <header class="social-head">
+          <div><strong>广场</strong><span>动态、话题、点赞评论和举报</span></div>
+          <button type="button" @click="showClientSheet('发布动态', '可以添加兴趣话题、图片或短视频，媒体内容会先进入审核。')">发布</button>
+        </header>
+        <div class="secondary-menu">
+          <button v-for="tab in squareTabs" :key="tab.id" type="button" :class="{ active: squareTab === tab.id }" @click="squareTab = tab.id">{{ tab.label }}</button>
+        </div>
+        <div class="square-composer" @click="showClientSheet('发布动态', '分享今天想遇见怎样的人。')">
+          <div class="avatar">{{ profileInitial }}</div>
+          <span>分享今天想遇见怎样的人</span>
+          <button type="button">发布</button>
+        </div>
+        <article v-for="item in visibleFeedItems" :key="item.id" class="feed-item">
+          <div class="feed-author"><div class="avatar">{{ item.name.slice(0, 1) }}</div><div><strong>{{ item.name }}</strong><span>{{ item.meta }}</span></div></div>
+          <p>{{ item.copy }}</p>
+          <div v-if="item.photos" class="photo-grid"><div></div><div></div><div></div></div>
+          <div class="feed-actions">
+            <button type="button" @click="likeFeedItem(item.id)">喜欢 {{ item.likes }}</button>
+            <button type="button" @click="showClientSheet('评论', '写一条友善评论，支持表情和 @ 用户。')">评论 {{ item.comments }}</button>
+            <button type="button" @click="showClientSheet('举报内容', '请选择原因：骚扰、裸露、诈骗、未成年人风险或其他。')">举报</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section v-show="clientEntered && activePage === 'video'" ref="stage" class="call-stage page">
       <div class="remote-video">
         <video ref="remoteVideo" autoplay playsinline></video>
         <div v-if="status !== 'matched'" class="state">
@@ -88,7 +199,52 @@
       </section>
     </section>
 
-    <section v-show="activePage === 'profile'" class="page page-shell">
+    <section v-show="clientEntered && activePage === 'messages'" class="page page-shell">
+      <div class="social-page" aria-label="messages">
+        <header class="social-head">
+          <div><strong>消息</strong><span>私聊、未读和系统通知</span></div>
+          <button type="button" @click="showClientSheet('消息设置', '可设置只接收互相关注、真人认证用户或系统安全通知。')">设置</button>
+        </header>
+        <div class="secondary-menu">
+          <button v-for="tab in messageTabs" :key="tab.id" type="button" :class="{ active: messageTab === tab.id }" @click="messageTab = tab.id">{{ tab.label }}</button>
+        </div>
+        <section class="social-list">
+          <article v-for="item in visibleMessages" :key="item.name" class="social-row" @click="showClientSheet(item.name, item.text)">
+            <div class="avatar">{{ item.name.slice(0, 1) }}</div>
+            <div><strong>{{ item.name }}</strong><span>{{ item.text }}</span></div>
+            <b>{{ item.time }}</b>
+          </article>
+        </section>
+      </div>
+    </section>
+
+    <section v-show="clientEntered && activePage === 'me'" class="page page-shell">
+      <div class="social-page" aria-label="my account">
+        <section class="me-panel">
+          <div class="me-head">
+            <div class="me-avatar">{{ profileInitial }}</div>
+            <div><strong>{{ profileForm.displayName || 'Leon' }}</strong><span>真人认证 · 兴趣 {{ selectedInterests.length }} 个 · 18+ {{ profileForm.ageConfirmed ? '已确认' : '未确认' }}</span></div>
+          </div>
+          <div class="stats-grid">
+            <button type="button" @click="showClientSheet('关注', '我的关注会优先出现在邀请和消息入口。')"><strong>{{ followedUsers.length || 128 }}</strong><span>关注</span></button>
+            <button type="button" @click="showClientSheet('动态', '动态会经过内容审核后展示在广场。')"><strong>36</strong><span>动态</span></button>
+            <button type="button" @click="showClientSheet('互动分', '互动分来自友善回复、稳定通话和低举报率。')"><strong>4.8</strong><span>互动分</span></button>
+          </div>
+        </section>
+        <div class="secondary-menu">
+          <button type="button" :class="{ active: meTab === 'profile' }" @click="meTab = 'profile'">资料</button>
+          <button type="button" :class="{ active: meTab === 'privacy' }" @click="meTab = 'privacy'">隐私</button>
+          <button type="button" :class="{ active: meTab === 'safety' }" @click="meTab = 'safety'">安全</button>
+        </div>
+        <section class="settings-list">
+          <button v-for="row in visibleSettings" :key="row.label" type="button" @click="handleSetting(row.action, row.label)">
+            {{ row.label }} <span>{{ row.value }}</span>
+          </button>
+        </section>
+      </div>
+    </section>
+
+    <section v-show="clientEntered && activePage === 'profile'" class="page page-shell">
       <div class="content-card profile-page" aria-label="profile setup">
         <div class="profile-head">
           <div class="avatar">{{ profileInitial }}</div>
@@ -166,7 +322,7 @@
       </div>
     </section>
 
-    <section v-show="activePage === 'discover'" class="page page-shell">
+    <section v-show="clientEntered && activePage === 'discover'" class="page page-shell">
       <div class="discover-page" aria-label="lounge discover">
         <header class="discover-head">
           <div>
@@ -256,7 +412,7 @@
       </div>
     </section>
 
-    <section v-show="activePage === 'membership'" class="page page-shell">
+    <section v-show="clientEntered && activePage === 'membership'" class="page page-shell">
       <div class="membership-page" aria-label="membership">
         <section class="membership-hero">
           <div class="membership-orb" aria-hidden="true">◆</div>
@@ -336,7 +492,7 @@
       </div>
     </section>
 
-    <section v-show="activePage === 'guide'" class="page page-shell">
+    <section v-show="clientEntered && activePage === 'guide'" class="page page-shell">
       <div class="content-card guide-page" aria-label="guide">
         <div class="guide-hero">
           <strong>Random Match 使用指南</strong>
@@ -363,7 +519,7 @@
       </div>
     </section>
 
-    <nav v-if="activePage === 'video'" class="toolbar" aria-label="match controls">
+    <nav v-if="clientEntered && activePage === 'video'" class="toolbar" aria-label="match controls">
       <button class="chat-toggle" @click="toggleChat">
         {{ chatOpen ? '收起文字' : '文字' }}
       </button>
@@ -381,13 +537,27 @@
       </button>
     </nav>
 
-    <nav class="app-nav" aria-label="main navigation">
-      <button :class="{ active: activePage === 'video' }" @click="switchPage('video')">视讯</button>
-      <button :class="{ active: activePage === 'discover' }" @click="switchPage('discover')">探索</button>
-      <button :class="{ active: activePage === 'profile' }" @click="switchPage('profile')">资料</button>
-      <button :class="{ active: activePage === 'membership' }" @click="switchPage('membership')">会员</button>
-      <button :class="{ active: activePage === 'guide' }" @click="switchPage('guide')">指南</button>
+    <nav v-if="clientEntered" class="app-nav" aria-label="main navigation">
+      <button :class="{ active: activePage === 'recommend' }" @click="switchPage('recommend')">推荐</button>
+      <button :class="{ active: activePage === 'square' }" @click="switchPage('square')">广场</button>
+      <button :class="{ active: activePage === 'video' }" @click="switchPage('video')">视频</button>
+      <button :class="{ active: activePage === 'messages' }" @click="switchPage('messages')">消息</button>
+      <button :class="{ active: activePage === 'me' }" @click="switchPage('me')">我的</button>
     </nav>
+
+    <div v-if="sheetOpen" class="client-sheet-overlay" @click.self="closeClientSheet">
+      <section class="client-sheet" role="dialog" aria-modal="true" :aria-label="sheetTitle">
+        <div class="sheet-head">
+          <strong>{{ sheetTitle }}</strong>
+          <button type="button" aria-label="关闭" @click="closeClientSheet">×</button>
+        </div>
+        <p>{{ sheetBody }}</p>
+        <div class="sheet-actions">
+          <button type="button" @click="closeClientSheet">取消</button>
+          <button class="primary-action" type="button" @click="confirmClientSheet">确认</button>
+        </div>
+      </section>
+    </div>
 
     <button v-if="chatToastText" class="chat-toast" type="button" @click="openChatFromToast">
       <strong>新文字讯息</strong>
@@ -404,7 +574,11 @@ import { anonymousAuth, blockUser, confirmPaymentOrder, createPaymentOrder, fetc
 import { initAnalytics } from './firebase'
 
 type Status = 'idle' | 'waiting' | 'matched'
-type Page = 'video' | 'discover' | 'profile' | 'membership' | 'guide'
+type Page = 'recommend' | 'square' | 'video' | 'messages' | 'me' | 'discover' | 'profile' | 'membership' | 'guide'
+type LabeledTab = { id: string; label: string }
+type MockPerson = { name: string; age: number; distance: string; tags: string[] }
+type FeedItem = { id: string; scope: string; name: string; meta: string; copy: string; likes: number; comments: number; photos?: boolean }
+type MessagePreview = { scope: string; name: string; text: string; time: string }
 type ChatMessage = {
   id: string
   sender: 'self' | 'peer'
@@ -413,7 +587,20 @@ type ChatMessage = {
 }
 
 const mode = ref<MatchMode>('video')
-const activePage = ref<Page>('video')
+const clientEntered = ref(localStorage.getItem('clientEntered') === 'true')
+const activePage = ref<Page>(clientEntered.value ? 'recommend' : 'video')
+const authMode = ref<'login' | 'register'>('login')
+const authAccount = ref('')
+const authPassword = ref('')
+const authLoading = ref(false)
+const recommendTab = ref<'smart' | 'nearby' | 'new'>('smart')
+const squareTab = ref('recommend')
+const messageTab = ref('all')
+const meTab = ref<'profile' | 'privacy' | 'safety'>('profile')
+const recommendationIndex = ref(0)
+const sheetOpen = ref(false)
+const sheetTitle = ref('详情')
+const sheetBody = ref('')
 const status = ref<Status>('idle')
 const loading = ref(false)
 const leaving = ref(false)
@@ -544,6 +731,65 @@ const chatInputPlaceholder = computed(() => canUseChat.value ? '输入消息...'
 const chatHeaderText = computed(() => canUseChat.value ? peerDisplayName.value : '目前尚未连接对象')
 const selectedInterests = computed(() => parsedInterests())
 const followedUserIds = computed(() => new Set(followedUsers.value.map((user) => user.id)))
+const recommendations = ref<MockPerson[]>([
+  { name: 'Mina', age: 24, distance: '2.8 km', tags: ['旅行', '电影', '英语聊天'] },
+  { name: 'Ariel', age: 25, distance: '1.6 km', tags: ['独立音乐', '咖啡', '摄影'] },
+  { name: 'Ruby', age: 23, distance: '3.6 km', tags: ['健身', '动漫', '夜景'] }
+])
+const nearbyPeople: MockPerson[] = [
+  { name: 'Nana', age: 26, distance: '1.2 km', tags: ['咖啡', '散步', '英语聊天'] },
+  { name: 'Ruby', age: 23, distance: '3.6 km', tags: ['城市夜景', '电影', '摄影'] }
+]
+const squareTabs: LabeledTab[] = [
+  { id: 'recommend', label: '推荐' },
+  { id: 'nearby', label: '附近' },
+  { id: 'following', label: '关注' },
+  { id: 'latest', label: '最新' }
+]
+const messageTabs: LabeledTab[] = [
+  { id: 'all', label: '全部' },
+  { id: 'unread', label: '未读' },
+  { id: 'system', label: '系统' }
+]
+const feedItems = ref<FeedItem[]>([
+  { id: 'feed-1', scope: 'recommend', name: 'Mina', meta: '#电影 · 推荐', copy: '想找一个也喜欢独立电影的人，今晚可以先语音聊聊。', likes: 238, comments: 42, photos: true },
+  { id: 'feed-2', scope: 'nearby', name: 'Ken', meta: '#语言交换 · 附近', copy: '中文和英文都可以，想练 20 分钟轻松聊天。', likes: 82, comments: 11 },
+  { id: 'feed-3', scope: 'following', name: 'Ariel', meta: '你关注的人 · 2 小时前', copy: '今晚的歌单更新了，想找人一起听 30 分钟。', likes: 419, comments: 58 },
+  { id: 'feed-4', scope: 'latest', name: 'Leo', meta: '刚刚发布 · 待审核图已隐藏', copy: '刚到新城市，想知道附近有什么适合聊天的咖啡店。', likes: 9, comments: 2 }
+])
+const messagePreviews: MessagePreview[] = [
+  { scope: 'all unread', name: 'Mina', text: '我也喜欢那部电影，晚上可以聊聊。', time: '09:32' },
+  { scope: 'all', name: 'Ariel', text: '视频通话质量很好，下次继续。', time: '昨天' },
+  { scope: 'all system', name: 'System', text: '你的动态已通过审核并公开展示。', time: '周一' },
+  { scope: 'unread', name: 'Ken', text: '附近咖啡店我有推荐。', time: '08:10' },
+  { scope: 'system', name: 'Safety', text: '举报已受理，处理结果会通过系统消息通知。', time: '上周' }
+]
+const currentRecommendation = computed(() => recommendations.value[recommendationIndex.value % recommendations.value.length])
+const visibleFeedItems = computed(() => feedItems.value.filter((item) => squareTab.value === 'recommend' ? item.scope === 'recommend' : item.scope === squareTab.value))
+const visibleMessages = computed(() => messagePreviews.filter((item) => item.scope.split(' ').includes(messageTab.value)))
+const visibleSettings = computed(() => {
+  if (meTab.value === 'privacy') {
+    return [
+      { label: '谁可以看到我的距离', value: '仅匹配', action: 'sheet' },
+      { label: '谁可以邀请视频', value: '互相关注', action: 'sheet' },
+      { label: '黑名单', value: String(blockedUsers.value.length || 12), action: 'profile' }
+    ]
+  }
+  if (meTab.value === 'safety') {
+    return [
+      { label: '18+ 确认', value: profileForm.value.ageConfirmed ? '已完成' : '未完成', action: 'profile' },
+      { label: '真人认证', value: '审核通过', action: 'sheet' },
+      { label: '举报记录', value: '2', action: 'sheet' },
+      { label: '账号安全', value: '›', action: 'guide' }
+    ]
+  }
+  return [
+    { label: '资料编辑', value: '›', action: 'profile' },
+    { label: '兴趣标签', value: `${selectedInterests.value.length} 个`, action: 'profile' },
+    { label: '认证中心', value: '›', action: 'sheet' },
+    { label: 'Match Pass', value: commerceStatus.value?.isMember ? '已开通' : '免费账户', action: 'membership' }
+  ]
+})
 
 initAnalytics()
 
@@ -601,6 +847,89 @@ async function switchPage(page: Page) {
   if (page === 'profile') {
     void loadBlockedUsers().catch(() => undefined)
   }
+}
+
+async function enterClientApp() {
+  authLoading.value = true
+  errorText.value = ''
+  try {
+    if (!profileForm.value.ageConfirmed) {
+      ageCheckAttention.value = true
+      errorText.value = '请先确认已满 18 岁'
+      window.setTimeout(() => {
+        ageCheckAttention.value = false
+      }, 2200)
+      return
+    }
+    try {
+      await ensureAuth()
+      await persistProfile()
+    } catch (error) {
+      errorText.value = `${toUserMessage(error)}，已先进入客户端演示模式`
+    }
+    clientEntered.value = true
+    localStorage.setItem('clientEntered', 'true')
+    await switchPage('recommend')
+    showClientSheet('欢迎来到 Findu', '推荐、广场、视频、消息和我的页面已开启。')
+  } catch (error) {
+    errorText.value = toUserMessage(error)
+  } finally {
+    authLoading.value = false
+  }
+}
+
+function showClientSheet(title: string, body: string) {
+  sheetTitle.value = title
+  sheetBody.value = body
+  sheetOpen.value = true
+}
+
+function closeClientSheet() {
+  sheetOpen.value = false
+}
+
+function confirmClientSheet() {
+  closeClientSheet()
+  errorText.value = '已保存'
+  window.setTimeout(() => {
+    if (errorText.value === '已保存') errorText.value = ''
+  }, 1800)
+}
+
+function skipRecommendation() {
+  recommendationIndex.value = (recommendationIndex.value + 1) % recommendations.value.length
+  showClientSheet('已跳过', '推荐会继续结合兴趣、互动质量、内容审核状态和拉黑关系。')
+}
+
+function greetRecommendation() {
+  const person = currentRecommendation.value
+  showClientSheet('打招呼', `Hi ${person.name}，我也喜欢${person.tags.slice(0, 2).join('和')}。今晚有空聊 10 分钟吗？`)
+}
+
+function showProfileSheet(name: string) {
+  showClientSheet(name, '真人认证 · 共同兴趣 4 个 · 支持关注、私聊和视频邀请。')
+}
+
+function likeFeedItem(id: string) {
+  const item = feedItems.value.find((entry) => entry.id === id)
+  if (!item) return
+  item.likes += 1
+}
+
+function handleSetting(action: string, label: string) {
+  if (action === 'profile') {
+    void switchPage('profile')
+    return
+  }
+  if (action === 'membership') {
+    void switchPage('membership')
+    return
+  }
+  if (action === 'guide') {
+    void switchPage('guide')
+    return
+  }
+  showClientSheet(label, '此设置会影响推荐、广场、视频邀请和消息权限。')
 }
 
 function toggleChat() {
