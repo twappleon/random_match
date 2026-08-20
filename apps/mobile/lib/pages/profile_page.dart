@@ -159,13 +159,16 @@ class _ProfilePageState extends State<ProfilePage> {
                             ? Colors.transparent
                             : const Color(0xffffc857).withValues(alpha: 0.08),
                       ),
-                      child: CheckboxListTile(
-                        value: controller.ageConfirmed.value,
-                        onChanged: (value) =>
-                            controller.ageConfirmed.value = value ?? false,
-                        contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 8),
-                        title: const Text('我已满 18 岁并同意文明视讯'),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: CheckboxListTile(
+                          value: controller.ageConfirmed.value,
+                          onChanged: (value) =>
+                              controller.ageConfirmed.value = value ?? false,
+                          contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 8),
+                          title: const Text('我已满 18 岁并同意文明视讯'),
+                        ),
                       ),
                     )),
                 const SizedBox(height: 8),
@@ -248,20 +251,24 @@ class _ProfilePageState extends State<ProfilePage> {
                             color: Colors.white.withValues(alpha: 0.06),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: const Color(0xff2fd276),
-                              foregroundColor: const Color(0xff06150c),
-                              child: Text(initial,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w900)),
-                            ),
-                            title: Text(user.displayName),
-                            subtitle:
-                                Text(user.bio.isEmpty ? '已拉黑用户' : user.bio),
-                            trailing: TextButton(
-                              onPressed: () => controller.unblockUser(user.id),
-                              child: const Text('解除'),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: const Color(0xff2fd276),
+                                foregroundColor: const Color(0xff06150c),
+                                child: Text(initial,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w900)),
+                              ),
+                              title: Text(user.displayName),
+                              subtitle: Text(
+                                  user.bio.isEmpty ? '已拉黑用户' : user.bio),
+                              trailing: TextButton(
+                                onPressed: () =>
+                                    controller.unblockUser(user.id),
+                                child: const Text('解除'),
+                              ),
                             ),
                           ),
                         ),

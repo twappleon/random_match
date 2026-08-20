@@ -2,7 +2,7 @@
 
 ## App Store Connect
 
-1. Create the app with bundle ID `com.danawang.randommatch`.
+1. Create the app with bundle ID `com.leon456.randommatch`.
 2. Create an auto-renewable subscription group named `Match Pass`.
 3. Create product ID `premium_monthly`.
 4. Set price to USD 6.99 and fill subscription review metadata.
@@ -17,7 +17,7 @@
 Set these on the production server before rebuilding `backend`:
 
 ```env
-APPLE_BUNDLE_ID=com.danawang.randommatch
+APPLE_BUNDLE_ID=com.leon456.randommatch
 APPLE_IAP_PRODUCT_ID=premium_monthly
 APPLE_IAP_ISSUER_ID=
 APPLE_IAP_KEY_ID=

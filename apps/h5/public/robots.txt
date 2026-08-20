@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://danawang8899.com/sitemap.xml
+Sitemap: https://h5.random-match.online/sitemap.xml

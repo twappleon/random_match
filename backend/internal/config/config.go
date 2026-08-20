@@ -47,7 +47,7 @@ func Load() Config {
 		VAPIDPrivateKey:         env("VAPID_PRIVATE_KEY", ""),
 		VAPIDSubject:            env("VAPID_SUBJECT", "mailto:admin@example.com"),
 		FirebaseProjectID:       env("FIREBASE_PROJECT_ID", ""),
-		AppleBundleID:           env("APPLE_BUNDLE_ID", "com.danawang.randommatch"),
+		AppleBundleID:           env("APPLE_BUNDLE_ID", "com.leon456.randommatch"),
 		AppleIAPProductID:       env("APPLE_IAP_PRODUCT_ID", "premium_monthly"),
 		AppleIAPIssuerID:        env("APPLE_IAP_ISSUER_ID", ""),
 		AppleIAPKeyID:           env("APPLE_IAP_KEY_ID", ""),

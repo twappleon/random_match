@@ -117,7 +117,7 @@ docker run --rm node:22-alpine sh -c "npm -g install web-push >/dev/null && web-
 ```env
 VAPID_PUBLIC_KEY=上面输出的PublicKey
 VAPID_PRIVATE_KEY=上面输出的PrivateKey
-VAPID_SUBJECT=mailto:admin@danawang8899.com
+VAPID_SUBJECT=mailto:admin@random-match.online
 ```
 
 更新并重建 H5 和后端：
@@ -130,7 +130,7 @@ docker-compose -f deploy/docker-compose.prod.yml --env-file .env up -d --build -
 
 测试方式：
 
-1. 用 `https://h5.danawang8899.com` 打开 H5。
+1. 用 `https://h5.random-match.online` 打开 H5。
 2. iPhone 先用 Safari 分享按钮「加入主画面」，再从主画面打开；电脑 Chrome/Android Chrome 可直接打开网页测试。
 3. 点击「随机匹配」。
 4. 浏览器跳出通知权限时选择允许；如果也跳出摄像头/麦克风权限，也选择允许。
@@ -159,7 +159,7 @@ Flutter App 已接入 Firebase Cloud Messaging token 注册流程。App 启动�
 2. 新增 Android app，Package name 填：
 
 ```text
-com.danawang.randommatch
+com.leon456.randommatch
 ```
 
 3. 下载 `google-services.json`，放到：
@@ -171,7 +171,7 @@ apps/mobile/android/app/google-services.json
 4. 新增 iOS app，Bundle ID 填：
 
 ```text
-com.danawang.randommatch
+com.leon456.randommatch
 ```
 
 5. 下载 `GoogleService-Info.plist`，放到：
@@ -235,8 +235,8 @@ docker-compose \
 
 ### 4. 文件和环境变量清单
 
-- Android Firebase app package name: `com.danawang.randommatch`
-- iOS Bundle ID: `com.danawang.randommatch`
+- Android Firebase app package name: `com.leon456.randommatch`
+- iOS Bundle ID: `com.leon456.randommatch`
 - Android 客户端文件：`apps/mobile/android/app/google-services.json`
 - iOS 客户端文件：`apps/mobile/ios/Runner/GoogleService-Info.plist`
 - 后端 service account 文件：通过服务器文件或 secret 挂载到容器内

@@ -6,8 +6,8 @@
 cd apps/mobile
 flutter create .
 flutter pub get
-flutter run --dart-define=API_BASE=https://h5.danawang8899.com
-flutter build apk --release --dart-define=API_BASE=https://h5.danawang8899.com
+flutter run --dart-define=API_BASE=https://random-match.online
+flutter build apk --release --dart-define=API_BASE=https://random-match.online
 ```
 
 接入 Firebase 后放入原生配置文件：
