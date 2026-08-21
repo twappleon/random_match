@@ -23,6 +23,10 @@ type anonymousAuthResponse struct {
 	User  model.User `json:"user"`
 }
 
+type firebaseAuthRequest struct {
+	IDToken string `json:"idToken" example:"eyJhbGciOiJSUzI1NiIsImtpZCI6..."`
+}
+
 type joinMatchRequest struct {
 	Mode      model.MatchMode `json:"mode" example:"video" enums:"video"`
 	Region    string          `json:"region" example:"global"`

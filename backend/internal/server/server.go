@@ -51,6 +51,7 @@ func (s *Server) Routes() http.Handler {
 
 	v1 := router.Group("/api/v1")
 	v1.POST("/auth/anonymous", s.anonymousAuth)
+	v1.POST("/auth/firebase", s.firebaseAuth)
 	v1.GET("/stats", s.stats)
 	v1.GET("/ws", s.ws)
 

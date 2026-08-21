@@ -9,6 +9,7 @@ backend/tmp/
 # Node
 apps/h5/node_modules/
 apps/h5/dist/
+apps/h5/.env
 
 # Flutter
 apps/mobile/.dart_tool/

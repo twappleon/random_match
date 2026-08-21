@@ -32,9 +32,11 @@
             {{ authLoading ? '进入中' : authMode === 'login' ? '登录并进入' : '创建账号' }}
           </button>
           <div class="auth-alt">
-            <button type="button" @click="showClientSheet('验证码登录', '输入手机号或邮箱后，系统会发送一次性验证码。')">验证码登录</button>
-            <button type="button" @click="showClientSheet('第三方注册', '第三方注册后仍需完成 18+ 确认，才能进入核心社交功能。')">Google / Apple</button>
+            <button type="button" :disabled="authLoading" @click="loginWithSmsCode">验证码登录</button>
+            <button type="button" :disabled="authLoading" @click="loginWithProvider('google')">Google</button>
+            <button type="button" :disabled="authLoading" @click="loginWithProvider('apple')">Apple</button>
           </div>
+          <div id="firebase-recaptcha" aria-hidden="true"></div>
         </div>
       </div>
     </section>
@@ -571,8 +573,8 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { anonymousAuth, blockUser, confirmPaymentOrder, createPaymentOrder, fetchBlockedUsers, fetchCommerceStatus, fetchDiscoverProfiles, fetchFollowedUsers, fetchProfile, fetchStats, followUser, iceServers, joinMatch, leaveMatch, reportUser, savePushSubscription, sendDirectMessage, sendPushTest, unblockUser, unfollowUser, updateLocation, updateProfile, uploadMatchSnapshot, vapidPublicKey, verifySession, type BlockedUser, type CommerceStatus, type MatchMode, type UserProfile, wsURL } from './api'
-import { initAnalytics } from './firebase'
+import { blockUser, confirmPaymentOrder, createPaymentOrder, fetchBlockedUsers, fetchCommerceStatus, fetchDiscoverProfiles, fetchFollowedUsers, fetchProfile, fetchStats, firebaseAuth, followUser, iceServers, joinMatch, leaveMatch, reportUser, savePushSubscription, sendDirectMessage, sendPushTest, unblockUser, unfollowUser, updateLocation, updateProfile, uploadMatchSnapshot, vapidPublicKey, verifySession, type AuthResponse, type BlockedUser, type CommerceStatus, type MatchMode, type UserProfile, wsURL } from './api'
+import { confirmPhoneVerification, initAnalytics, loginWithApple, loginWithEmailPassword, loginWithGoogle, logoutFirebase, registerWithEmailPassword, sendPhoneVerification } from './firebase'
 
 type Status = 'idle' | 'waiting' | 'matched'
 type Page = 'recommend' | 'square' | 'video' | 'messages' | 'me' | 'discover' | 'profile' | 'membership' | 'guide'
@@ -870,22 +872,92 @@ async function enterClientApp() {
       }, 2200)
       return
     }
-    try {
-      await ensureAuth()
-      await persistProfile()
-    } catch (error) {
-      errorText.value = `${toUserMessage(error)}，已先进入客户端演示模式`
-    }
-    clientEntered.value = true
-    localStorage.setItem('clientEntered', 'true')
-    await switchPage('recommend')
-    startLocationUpdates(true)
-    showClientSheet('欢迎来到 Findu', '推荐、广场、视频、消息和我的页面已开启。')
+    const email = authAccount.value.trim()
+    const password = authPassword.value
+    if (!email || !password) throw new Error('请输入邮箱和密码')
+    const firebaseUser = authMode.value === 'register'
+      ? await registerWithEmailPassword(email, password)
+      : await loginWithEmailPassword(email, password)
+    await completeFirebaseLogin(await exchangeFirebaseUser(firebaseUser))
   } catch (error) {
     errorText.value = toUserMessage(error)
   } finally {
     authLoading.value = false
   }
+}
+
+async function loginWithProvider(provider: 'google' | 'apple') {
+  authLoading.value = true
+  errorText.value = ''
+  try {
+    if (!profileForm.value.ageConfirmed) {
+      ageCheckAttention.value = true
+      errorText.value = '请先确认已满 18 岁'
+      window.setTimeout(() => {
+        ageCheckAttention.value = false
+      }, 2200)
+      return
+    }
+    const firebaseUser = provider === 'google' ? await loginWithGoogle() : await loginWithApple()
+    await completeFirebaseLogin(await exchangeFirebaseUser(firebaseUser))
+  } catch (error) {
+    errorText.value = toUserMessage(error)
+  } finally {
+    authLoading.value = false
+  }
+}
+
+async function loginWithSmsCode() {
+  authLoading.value = true
+  errorText.value = ''
+  try {
+    if (!profileForm.value.ageConfirmed) {
+      ageCheckAttention.value = true
+      errorText.value = '请先确认已满 18 岁'
+      window.setTimeout(() => {
+        ageCheckAttention.value = false
+      }, 2200)
+      return
+    }
+    const phone = authAccount.value.trim()
+    if (!phone) throw new Error('请输入手机号，格式例如 +886912345678')
+    await sendPhoneVerification(phone)
+    const code = window.prompt('请输入 Firebase 短信验证码')
+    if (!code?.trim()) throw new Error('验证码不能为空')
+    const firebaseUser = await confirmPhoneVerification(code.trim())
+    await completeFirebaseLogin(await exchangeFirebaseUser(firebaseUser))
+  } catch (error) {
+    errorText.value = toUserMessage(error)
+  } finally {
+    authLoading.value = false
+  }
+}
+
+async function exchangeFirebaseUser(firebaseUser: { getIdToken: () => Promise<string> }) {
+  const idToken = await firebaseUser.getIdToken()
+  return firebaseAuth(idToken)
+}
+
+async function completeFirebaseLogin(auth: AuthResponse) {
+  const desiredProfile = { ...profileForm.value }
+  const desiredInterests = interestsText.value
+  token.value = auth.token
+  localStorage.setItem('token', auth.token)
+  setProfile(auth.user)
+  profileForm.value = {
+    ...profileForm.value,
+    displayName: desiredProfile.displayName || profileForm.value.displayName,
+    bio: desiredProfile.bio || profileForm.value.bio,
+    language: desiredProfile.language || profileForm.value.language,
+    ageConfirmed: desiredProfile.ageConfirmed
+  }
+  interestsText.value = desiredInterests || interestsText.value
+  await persistProfile()
+  clientEntered.value = true
+  localStorage.setItem('clientEntered', 'true')
+  await switchPage('recommend')
+  startLocationUpdates(true)
+  showClientSheet('欢迎来到 Findu', '推荐、广场、视频、消息和我的页面已开启。')
 }
 
 function startLocationUpdates(promptUser = false) {
@@ -1050,6 +1122,7 @@ function logoutClient() {
   closeSocket()
   stopLocalMedia()
   resetCall()
+  void logoutFirebase().catch(() => undefined)
   clearToken()
   clientEntered.value = false
   localStorage.removeItem('clientEntered')
@@ -1068,10 +1141,7 @@ function logoutClient() {
 async function ensureAuth() {
   if (token.value && (await verifySession(token.value))) return
   clearToken()
-  const auth = await anonymousAuth()
-  token.value = auth.token
-  localStorage.setItem('token', auth.token)
-  setProfile(auth.user)
+  throw new Error('请先登录')
 }
 
 function setProfile(nextProfile: UserProfile) {

@@ -43,6 +43,16 @@ export async function anonymousAuth(): Promise<AuthResponse> {
   return res.json()
 }
 
+export async function firebaseAuth(idToken: string): Promise<AuthResponse> {
+  const res = await fetch(`${apiBase()}/api/v1/auth/firebase`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken })
+  })
+  if (!res.ok) throw new Error('Firebase 登录失败，请确认后端 FIREBASE_PROJECT_ID 与凭证已设置')
+  return res.json()
+}
+
 export interface MatchResponse {
   status: 'waiting' | 'matched'
   roomId?: string

@@ -65,8 +65,10 @@ flutter run
 
 - `GET /health`: 健康检查
 - `POST /api/v1/auth/anonymous`: 匿名登录
+- `POST /api/v1/auth/firebase`: 使用 Firebase ID token 登录/注册，并换取后端 JWT
 - `GET /api/v1/me`: 读取匿名身份资料
 - `PUT /api/v1/me`: 更新昵称、简介、兴趣标签和年龄确认
+- `PUT /api/v1/me/location`: 更新当前用户定位；其他用户只会看到计算后的距离
 - `POST /api/v1/match/join`: 加入随机视讯匹配队列
 - `POST /api/v1/match/leave`: 离开匹配队列
 - `POST /api/v1/match/snapshot`: 保存配对成功后的截图
@@ -94,6 +96,152 @@ flutter run
 H5 空闲状态会显示匿名身份卡，用户可填写昵称、简介、兴趣标签，并确认已满 18 岁。开始随机匹配时会自动保存资料；配对成功后双方会看到对方的匿名资料卡，可直接举报或拉黑。
 
 拉黑后当前通话会结束，后端会记录拉黑关系并尽量跳过后续匹配中的该用户。
+
+## Firebase Auth 登录
+
+H5 登录页已接入 Firebase Authentication，不再使用 mock 登录流程。当前支持：
+
+- Email / Password 登录
+- Email / Password 注册
+- 手机验证码登录，使用 Firebase Phone Auth 和 invisible reCAPTCHA
+- Google popup 登录
+- Apple popup 登录
+
+### 1. Firebase Console 配置
+
+1. 在 Firebase Console 创建或打开项目。
+2. 到 Authentication > Sign-in method 启用以下 provider：
+   - Email/Password
+   - Phone
+   - Google
+   - Apple
+3. Phone Auth 需要把测试/生产域名加入 Firebase Authentication 的 Authorized domains。开发环境通常需要：
+
+```text
+localhost
+127.0.0.1
+```
+
+4. Google 登录需要配置 OAuth consent screen。
+5. Apple 登录需要在 Apple Developer 后台配置 Sign in with Apple，并把 Service ID / redirect domain 按 Firebase Console 指示填好。
+
+当前 Firebase 项目为 `random-match-7370c`，Web app 名称为 `random-match-web`。Firebase Console 已启用：
+
+- Email/Password
+- Phone
+- Google
+
+Authorized domains 已包含：
+
+```text
+localhost
+random-match-7370c.firebaseapp.com
+random-match-7370c.web.app
+```
+
+Apple provider 仍需 Apple Developer 资料后才能启用：
+
+- Service ID
+- Team ID
+- Key ID
+- Private Key
+- Apple Developer 后台需加入 Firebase redirect URL：
+
+```text
+https://random-match-7370c.firebaseapp.com/__/auth/handler
+```
+
+### 2. H5 环境变量
+
+H5 通过 Vite 环境变量读取 Firebase Web config。先复制示例：
+
+```bash
+cd apps/h5
+cp .env.example .env
+```
+
+然后把 Firebase Console > Project settings > General > Web app config 填入：
+
+```env
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+VITE_FIREBASE_MEASUREMENT_ID=
+```
+
+`VITE_API_BASE` 可不填；开发和生产默认使用当前 origin。若 H5 和 API 不同域，才设置：
+
+```env
+VITE_API_BASE=https://api.example.com
+```
+
+### 3. 后端 Firebase Admin 配置
+
+H5 使用 Firebase 登录成功后，会拿 Firebase ID token 调用：
+
+```http
+POST /api/v1/auth/firebase
+```
+
+后端会用 Firebase Admin SDK 验证 ID token，按 `firebaseUid` 创建或更新本地用户，然后签发本项目自己的 JWT。后续 `/api/v1/me`、匹配、聊天、定位、会员等 API 仍使用这个后端 JWT。
+
+生产服务器不要提交 service account JSON 到 Git。建议放到服务器安全路径，例如：
+
+```text
+/opt/random_match/secrets/firebase-service-account.json
+```
+
+后端环境变量：
+
+```env
+FIREBASE_PROJECT_ID=random-match-7370c
+GOOGLE_APPLICATION_CREDENTIALS=/app/firebase-service-account.json
+```
+
+如果使用 `deploy/docker-compose.prod.yml`，可以用 override 文件挂载：
+
+```yaml
+# deploy/docker-compose.firebase.yml
+services:
+  backend:
+    environment:
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      GOOGLE_APPLICATION_CREDENTIALS: /app/firebase-service-account.json
+    volumes:
+      - /opt/random_match/secrets/firebase-service-account.json:/app/firebase-service-account.json:ro
+```
+
+启动或重建：
+
+```bash
+docker-compose \
+  -f deploy/docker-compose.prod.yml \
+  -f deploy/docker-compose.firebase.yml \
+  --env-file .env \
+  up -d --build --force-recreate backend h5
+```
+
+### 4. 登录流程
+
+```text
+H5 Firebase Auth 登录
+  -> firebaseUser.getIdToken()
+  -> POST /api/v1/auth/firebase
+  -> 后端 VerifyIDToken
+  -> users.firebaseUid upsert
+  -> 后端 JWT
+  -> H5 localStorage token
+```
+
+注意事项：
+
+- 未设置 `VITE_FIREBASE_*` 时，H5 会提示 Firebase 尚未设置。
+- 未设置后端 `FIREBASE_PROJECT_ID` 或 Admin credentials 时，`/api/v1/auth/firebase` 会失败。
+- 手机验证码必须使用 Firebase 认可的授权域名；生产 HTTPS 域名上线后也要加入 Authorized domains。
+- Apple 登录需要额外完成 Apple Developer 配置，否则 popup 会失败。
 
 ## 离线上线通知
 
