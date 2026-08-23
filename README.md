@@ -170,19 +170,28 @@ cp .env.example .env
 然后把 Firebase Console > Project settings > General > Web app config 填入：
 
 ```env
-VITE_FIREBASE_API_KEY=
-VITE_FIREBASE_AUTH_DOMAIN=
-VITE_FIREBASE_PROJECT_ID=
-VITE_FIREBASE_STORAGE_BUCKET=
-VITE_FIREBASE_MESSAGING_SENDER_ID=
-VITE_FIREBASE_APP_ID=
-VITE_FIREBASE_MEASUREMENT_ID=
+VITE_FIREBASE_API_KEY=AIzaSyAwXlt3ZTo7GTSPPEEpYz0rZfU4hWgSVEo
+VITE_FIREBASE_AUTH_DOMAIN=random-match-7370c.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=random-match-7370c
+VITE_FIREBASE_STORAGE_BUCKET=random-match-7370c.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=79262345196
+VITE_FIREBASE_APP_ID=1:79262345196:web:2a4161e46668f0882642c9
+VITE_FIREBASE_MEASUREMENT_ID=G-1W9LWYBGCT
 ```
 
 `VITE_API_BASE` 可不填；开发和生产默认使用当前 origin。若 H5 和 API 不同域，才设置：
 
 ```env
 VITE_API_BASE=https://api.example.com
+```
+
+生产服务器使用 `deploy/docker-compose.prod.yml` 时，也必须把同一组 `VITE_FIREBASE_*` 写进根目录 `.env`。这些变量会在 Docker build 阶段传入 Vite；如果只在容器启动后才设置，前端静态档已经打包完成，页面仍会显示「Firebase 尚未设置」。
+
+更新服务器 `.env` 后，至少重建 H5：
+
+```bash
+docker-compose -f deploy/docker-compose.prod.yml --env-file .env build --no-cache h5
+docker-compose -f deploy/docker-compose.prod.yml --env-file .env up -d --force-recreate h5
 ```
 
 ### 3. 后端 Firebase Admin 配置
