@@ -8,9 +8,11 @@ import {
   User,
   createUserWithEmailAndPassword,
   getAuth,
+  getRedirectResult,
   signInWithEmailAndPassword,
   signInWithPhoneNumber,
   signInWithPopup,
+  signInWithRedirect,
   signOut
 } from 'firebase/auth'
 
@@ -54,7 +56,8 @@ export async function registerWithEmailPassword(email: string, password: string)
 }
 
 export async function loginWithGoogle(): Promise<User> {
-  const credential = await signInWithPopup(requireFirebaseAuth(), new GoogleAuthProvider())
+  const provider = new GoogleAuthProvider()
+  const credential = await signInWithPopup(requireFirebaseAuth(), provider)
   return credential.user
 }
 
@@ -64,6 +67,22 @@ export async function loginWithApple(): Promise<User> {
   provider.addScope('name')
   const credential = await signInWithPopup(requireFirebaseAuth(), provider)
   return credential.user
+}
+
+export async function loginWithGoogleRedirect(): Promise<void> {
+  await signInWithRedirect(requireFirebaseAuth(), new GoogleAuthProvider())
+}
+
+export async function loginWithAppleRedirect(): Promise<void> {
+  const provider = new OAuthProvider('apple.com')
+  provider.addScope('email')
+  provider.addScope('name')
+  await signInWithRedirect(requireFirebaseAuth(), provider)
+}
+
+export async function consumeRedirectLogin(): Promise<User | null> {
+  const credential = await getRedirectResult(requireFirebaseAuth())
+  return credential?.user ?? null
 }
 
 let phoneConfirmation: ConfirmationResult | null = null

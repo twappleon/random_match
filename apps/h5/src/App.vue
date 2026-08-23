@@ -33,8 +33,12 @@
           </button>
           <div class="auth-alt">
             <button type="button" :disabled="authLoading" @click="loginWithSmsCode">验证码登录</button>
-            <button type="button" :disabled="authLoading" @click="loginWithProvider('google')">Google</button>
-            <button type="button" :disabled="authLoading" @click="loginWithProvider('apple')">Apple</button>
+            <button type="button" :disabled="authLoading" @click="loginWithProvider('google')">
+              {{ authLoading ? '处理中' : 'Google 继续' }}
+            </button>
+            <button type="button" :disabled="authLoading" @click="loginWithProvider('apple')">
+              {{ authLoading ? '处理中' : 'Apple 继续' }}
+            </button>
           </div>
           <div id="firebase-recaptcha" aria-hidden="true"></div>
         </div>
@@ -572,9 +576,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { blockUser, confirmPaymentOrder, createPaymentOrder, fetchBlockedUsers, fetchCommerceStatus, fetchDiscoverProfiles, fetchFollowedUsers, fetchProfile, fetchStats, firebaseAuth, followUser, iceServers, joinMatch, leaveMatch, reportUser, savePushSubscription, sendDirectMessage, sendPushTest, unblockUser, unfollowUser, updateLocation, updateProfile, uploadMatchSnapshot, vapidPublicKey, verifySession, type AuthResponse, type BlockedUser, type CommerceStatus, type MatchMode, type UserProfile, wsURL } from './api'
-import { confirmPhoneVerification, initAnalytics, loginWithApple, loginWithEmailPassword, loginWithGoogle, logoutFirebase, registerWithEmailPassword, sendPhoneVerification } from './firebase'
+import { confirmPhoneVerification, consumeRedirectLogin, initAnalytics, loginWithApple, loginWithAppleRedirect, loginWithEmailPassword, loginWithGoogle, loginWithGoogleRedirect, logoutFirebase, registerWithEmailPassword, sendPhoneVerification } from './firebase'
 
 type Status = 'idle' | 'waiting' | 'matched'
 type Page = 'recommend' | 'square' | 'video' | 'messages' | 'me' | 'discover' | 'profile' | 'membership' | 'guide'
@@ -617,6 +621,7 @@ const reportedPeerId = ref<string | null>(null)
 const unblockingUserId = ref<string | null>(null)
 const pushStatus = ref<'idle' | 'enabled' | 'blocked' | 'unsupported' | 'unconfigured'>('idle')
 const errorText = ref('')
+const errorToastTimer = ref<number | null>(null)
 const profile = ref<UserProfile | null>(null)
 const peerProfile = ref<UserProfile | null>(null)
 const blockedUsers = ref<BlockedUser[]>([])
@@ -672,6 +677,7 @@ const previewDrag = ref<{
 } | null>(null)
 const capturedSnapshotRooms = new Set<string>()
 const cameraFacing = ref<'user' | 'environment'>('user')
+const pendingProviderProfileKey = 'pendingProviderProfile'
 
 const stateBadgeText = computed(() => status.value === 'waiting' ? 'LIVE MATCH' : 'AURORA READY')
 const stateTitle = computed(() => status.value === 'waiting' ? '正在寻找新朋友' : '今晚遇见新朋友')
@@ -804,6 +810,18 @@ const visibleSettings = computed(() => {
 
 initAnalytics()
 
+watch(errorText, (message) => {
+  if (errorToastTimer.value !== null) {
+    window.clearTimeout(errorToastTimer.value)
+    errorToastTimer.value = null
+  }
+  if (!message) return
+  errorToastTimer.value = window.setTimeout(() => {
+    if (errorText.value === message) errorText.value = ''
+    errorToastTimer.value = null
+  }, 3200)
+})
+
 async function refreshStats() {
   try {
     stats.value = await fetchStats()
@@ -898,9 +916,91 @@ async function loginWithProvider(provider: 'google' | 'apple') {
       }, 2200)
       return
     }
+    savePendingProviderProfile()
     const firebaseUser = provider === 'google' ? await loginWithGoogle() : await loginWithApple()
+    clearPendingProviderProfile()
     await completeFirebaseLogin(await exchangeFirebaseUser(firebaseUser))
   } catch (error) {
+    if (shouldRedirectProviderLogin(error)) {
+      try {
+        savePendingProviderProfile()
+        errorText.value = `正在前往 ${provider === 'google' ? 'Google' : 'Apple'} 登录`
+        if (provider === 'google') {
+          await loginWithGoogleRedirect()
+        } else {
+          await loginWithAppleRedirect()
+        }
+        return
+      } catch (redirectError) {
+        clearPendingProviderProfile()
+        errorText.value = toUserMessage(redirectError)
+        return
+      }
+    }
+    clearPendingProviderProfile()
+    errorText.value = toUserMessage(error)
+  } finally {
+    authLoading.value = false
+  }
+}
+
+function shouldRedirectProviderLogin(error: unknown) {
+  if (!error || typeof error !== 'object' || !('code' in error)) return false
+  const code = String((error as { code?: unknown }).code)
+  return [
+    'auth/popup-blocked',
+    'auth/popup-closed-by-user',
+    'auth/cancelled-popup-request',
+    'auth/operation-not-supported-in-this-environment'
+  ].includes(code)
+}
+
+function savePendingProviderProfile() {
+  localStorage.setItem(pendingProviderProfileKey, JSON.stringify({
+    displayName: profileForm.value.displayName,
+    bio: profileForm.value.bio,
+    language: profileForm.value.language,
+    ageConfirmed: profileForm.value.ageConfirmed,
+    interestsText: interestsText.value
+  }))
+}
+
+function restorePendingProviderProfile() {
+  const raw = localStorage.getItem(pendingProviderProfileKey)
+  if (!raw) return
+  try {
+    const saved = JSON.parse(raw) as Partial<typeof profileForm.value> & { interestsText?: unknown }
+    profileForm.value = {
+      ...profileForm.value,
+      displayName: typeof saved.displayName === 'string' ? saved.displayName : profileForm.value.displayName,
+      bio: typeof saved.bio === 'string' ? saved.bio : profileForm.value.bio,
+      language: typeof saved.language === 'string' ? saved.language : profileForm.value.language,
+      ageConfirmed: Boolean(saved.ageConfirmed)
+    }
+    if (typeof saved.interestsText === 'string') interestsText.value = saved.interestsText
+  } catch {
+    clearPendingProviderProfile()
+  }
+}
+
+function clearPendingProviderProfile() {
+  localStorage.removeItem(pendingProviderProfileKey)
+}
+
+async function finishProviderRedirectLogin() {
+  try {
+    const firebaseUser = await consumeRedirectLogin()
+    if (!firebaseUser) return
+    authLoading.value = true
+    errorText.value = ''
+    restorePendingProviderProfile()
+    if (!profileForm.value.ageConfirmed) {
+      throw new Error('请先确认已满 18 岁')
+    }
+    clearPendingProviderProfile()
+    await completeFirebaseLogin(await exchangeFirebaseUser(firebaseUser))
+  } catch (error) {
+    clearPendingProviderProfile()
     errorText.value = toUserMessage(error)
   } finally {
     authLoading.value = false
@@ -2144,6 +2244,10 @@ onBeforeUnmount(() => {
   stopLocationUpdates()
   stopSocketHeartbeat()
   clearChatToast()
+  if (errorToastTimer.value !== null) {
+    window.clearTimeout(errorToastTimer.value)
+    errorToastTimer.value = null
+  }
   window.removeEventListener('resize', ensurePreviewPosition)
   window.removeEventListener('pointermove', dragPreview)
   window.removeEventListener('pointerup', stopPreviewDrag)
@@ -2156,6 +2260,7 @@ onBeforeUnmount(() => {
 onMounted(() => {
   window.addEventListener('resize', ensurePreviewPosition)
   startStatsPolling()
+  void finishProviderRedirectLogin()
   void loadProfile()
   void setupPushNotifications(false)
   if (clientEntered.value) startLocationUpdates(false)
