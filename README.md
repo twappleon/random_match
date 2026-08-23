@@ -130,6 +130,7 @@ localhost
 - Email/Password
 - Phone
 - Google
+- Apple
 
 Authorized domains 已包含：
 
@@ -139,16 +140,22 @@ random-match-7370c.firebaseapp.com
 random-match-7370c.web.app
 ```
 
-Apple provider 仍需 Apple Developer 资料后才能启用：
+Apple provider 已使用以下 Apple Developer 设置启用：
 
-- Service ID
-- Team ID
-- Key ID
-- Private Key
-- Apple Developer 后台需加入 Firebase redirect URL：
+- Team ID: `PWNBD8U4DL`
+- App ID: `com.leon456.randommatch`
+- Service ID: `com.leon456.randommatch.web`
+- Key ID: `JZ7B4L4R36`
+- Firebase redirect URL:
 
 ```text
 https://random-match-7370c.firebaseapp.com/__/auth/handler
+```
+
+Apple private key 已保存在本机专案外部路径，不要提交到 Git：
+
+```text
+/Users/liuleon/Documents/random_match_secrets/apple/AuthKey_JZ7B4L4R36.p8
 ```
 
 ### 2. H5 环境变量
@@ -241,7 +248,7 @@ H5 Firebase Auth 登录
 - 未设置 `VITE_FIREBASE_*` 时，H5 会提示 Firebase 尚未设置。
 - 未设置后端 `FIREBASE_PROJECT_ID` 或 Admin credentials 时，`/api/v1/auth/firebase` 会失败。
 - 手机验证码必须使用 Firebase 认可的授权域名；生产 HTTPS 域名上线后也要加入 Authorized domains。
-- Apple 登录需要额外完成 Apple Developer 配置，否则 popup 会失败。
+- Apple 登录已完成 Firebase Console provider 配置；若重新生成 Apple key，需要同步更新 Firebase Apple provider。
 
 ## 离线上线通知
 
