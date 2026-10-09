@@ -27,14 +27,14 @@ class ChatSheet extends GetView<MatchController> {
                 children: [
                   Expanded(
                     child: Text(
-                      enabled ? '文字聊天' : '匹配成功后可文字聊天',
+                      enabled ? '文字聊天'.tr : '匹配成功后可文字聊天'.tr,
                       style: const TextStyle(fontWeight: FontWeight.w900),
                     ),
                   ),
                   IconButton(
                     onPressed: () => controller.chatOpen.value = false,
                     icon: const Icon(Icons.close),
-                    tooltip: '关闭',
+                    tooltip: '关闭'.tr,
                   ),
                 ],
               ),
@@ -43,7 +43,7 @@ class ChatSheet extends GetView<MatchController> {
               child: controller.messages.isEmpty
                   ? Center(
                       child: Text(
-                        enabled ? '开始文字聊天' : '等待匹配后开始聊天',
+                        enabled ? '开始文字聊天'.tr : '等待匹配后开始聊天'.tr,
                         style: const TextStyle(
                             color: Colors.white70, fontWeight: FontWeight.w700),
                       ),
@@ -126,7 +126,7 @@ class ChatSheet extends GetView<MatchController> {
                       maxLines: 3,
                       decoration: InputDecoration(
                         counterText: '',
-                        hintText: enabled ? '输入消息...' : '等待匹配后开始聊天',
+                        hintText: enabled ? '输入消息...'.tr : '等待匹配后开始聊天'.tr,
                         isDense: true,
                         border: const OutlineInputBorder(),
                       ),
@@ -136,7 +136,7 @@ class ChatSheet extends GetView<MatchController> {
                   const SizedBox(width: 8),
                   FilledButton(
                     onPressed: enabled ? controller.sendChatMessage : null,
-                    child: const Text('发送'),
+                    child: Text('发送'.tr),
                   ),
                 ],
               ),

@@ -1,10 +1,13 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:random_match_mobile/main.dart';
 
 void main() {
   testWidgets('renders match controls', (WidgetTester tester) async {
-    await tester.pumpWidget(const RandomMatchApp());
+    await tester.pumpWidget(
+      const RandomMatchApp(locale: Locale('zh', 'CN')),
+    );
 
     expect(find.text('视讯'), findsWidgets);
     expect(find.text('探索'), findsWidgets);

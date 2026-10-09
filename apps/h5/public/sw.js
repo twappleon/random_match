@@ -11,8 +11,8 @@ self.addEventListener('push', (event) => {
   const title = payload.title || 'Random Match'
   const options = {
     body: payload.body || '有人上线了，可以开始随机匹配。',
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
+    icon: '/icons/icon-192.png',
+    badge: '/favicon.png',
     data: {
       url: payload.url || '/'
     }

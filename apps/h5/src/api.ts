@@ -2,7 +2,7 @@ function apiBase() {
   if (import.meta.env.VITE_API_BASE) return import.meta.env.VITE_API_BASE
   // Dev: same-origin via Vite proxy (works for localhost and LAN IP).
   if (import.meta.env.DEV) return window.location.origin
-  return window.location.origin
+  return 'https://random-match.online'
 }
 
 export type MatchMode = 'video' | 'voice'

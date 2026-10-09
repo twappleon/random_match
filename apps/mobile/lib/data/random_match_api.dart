@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:get/get.dart';
 
 import '../core/config.dart';
 import 'models.dart';
@@ -246,15 +247,16 @@ class RandomMatchApi {
   String userMessage(Object error) {
     if (error is DioException) {
       if (error.response?.statusCode == 404) {
-        return '后端尚未支持此功能，请部署最新后端后再试';
+        return '后端尚未支持此功能，请部署最新后端后再试'.tr;
       }
       if (error.response?.statusCode == 402) {
         final data = error.response?.data;
         final remaining = data is Map ? data['dailyRemaining'] ?? 0 : 0;
-        return '今日免费匹配次数已用完，剩余 $remaining 次。开通会员可无限匹配并优先排队';
+        return '今日免费匹配次数已用完，剩余 @remaining 次。开通会员可无限匹配并优先排队'
+            .trParams({'remaining': '$remaining'});
       }
-      if (error.response?.statusCode == 409) return '已跳过拉黑用户，请再点一次随机匹配';
-      if (error.type == DioExceptionType.connectionError) return '无法连接后端服务';
+      if (error.response?.statusCode == 409) return '已跳过拉黑用户，请再点一次随机匹配'.tr;
+      if (error.type == DioExceptionType.connectionError) return '无法连接后端服务'.tr;
     }
     return error.toString().replaceFirst('Exception: ', '');
   }

@@ -151,15 +151,15 @@ class MatchController extends GetxController {
     try {
       iapAvailable.value = await iap.isAvailable();
       if (!iapAvailable.value) return;
-      final response =
-          await iap.queryProductDetails({premiumMonthlyProductId});
+      final response = await iap.queryProductDetails({premiumMonthlyProductId});
       if (response.error != null) {
-        Get.snackbar('IAP 尚未就绪', response.error!.message,
+        Get.snackbar('IAP 尚未就绪'.tr, response.error!.message,
             snackPosition: SnackPosition.BOTTOM);
         return;
       }
       if (response.productDetails.isEmpty) {
-        Get.snackbar('IAP 商品未找到', '请先在 App Store Connect 建立 premium_monthly',
+        Get.snackbar(
+            'IAP 商品未找到'.tr, '请先在 App Store Connect 建立 premium_monthly'.tr,
             snackPosition: SnackPosition.BOTTOM);
         return;
       }
@@ -277,7 +277,8 @@ class MatchController extends GetxController {
     } else if (items.length < 6) {
       items.add(value);
     } else {
-      Get.snackbar('兴趣已满', '最多选择 6 个兴趣标签', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('兴趣已满'.tr, '最多选择 6 个兴趣标签'.tr,
+          snackPosition: SnackPosition.BOTTOM);
       return;
     }
     interestsInput.text = items.join(', ');
@@ -299,7 +300,8 @@ class MatchController extends GetxController {
         language: profileLanguage.value,
       );
       setProfile(next);
-      Get.snackbar('资料已保存', '新的匿名身份已更新', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('资料已保存'.tr, '新的匿名身份已更新'.tr,
+          snackPosition: SnackPosition.BOTTOM);
     } catch (error) {
       showError(error);
     } finally {
@@ -321,7 +323,7 @@ class MatchController extends GetxController {
       }
       if (premiumFiltersActive && !hasPremiumAccess) {
         page.value = AppPage.membership;
-        throw Exception('精准筛选需要 Gems 或 Premium');
+        throw Exception('精准筛选需要 Gems 或 Premium'.tr);
       }
       await saveProfile();
       await ensureAuth();
@@ -373,7 +375,7 @@ class MatchController extends GetxController {
     chatOpen.value = false;
     page.value = AppPage.profile;
     agePromptRevision.value++;
-    Get.snackbar('请先确认年龄', '勾选已满 18 岁并保存资料后即可开始匹配',
+    Get.snackbar('请先确认年龄'.tr, '勾选已满 18 岁并保存资料后即可开始匹配'.tr,
         snackPosition: SnackPosition.BOTTOM);
   }
 
@@ -420,7 +422,7 @@ class MatchController extends GetxController {
     final camera = await Permission.camera.request();
     final microphone = await Permission.microphone.request();
     if (!camera.isGranted || !microphone.isGranted) {
-      throw Exception('请允许相机和麦克风权限后再开始视讯匹配');
+      throw Exception('请允许相机和麦克风权限后再开始视讯匹配'.tr);
     }
   }
 
@@ -438,9 +440,9 @@ class MatchController extends GetxController {
           handleSignal(jsonDecode(event as String) as Map<String, dynamic>)),
       onDone: () {
         _socket = null;
-        if (status.value == MatchStatus.matched) resetCall('信令连接已断开，请重新匹配');
+        if (status.value == MatchStatus.matched) resetCall('信令连接已断开，请重新匹配'.tr);
       },
-      onError: (_) => showError(Exception('信令连接失败')),
+      onError: (_) => showError(Exception('信令连接失败'.tr)),
     );
   }
 
@@ -473,7 +475,7 @@ class MatchController extends GetxController {
       case 'chat-message':
         receiveChatMessage(msg['data']);
       case 'peer-left':
-        resetCall('对方已离开，请重新匹配');
+        resetCall('对方已离开，请重新匹配'.tr);
     }
   }
 
@@ -584,7 +586,7 @@ class MatchController extends GetxController {
     unawaited(teardownPeer());
     status.value = MatchStatus.idle;
     if (message.isNotEmpty) {
-      Get.snackbar('通话已结束', message, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('通话已结束'.tr, message, snackPosition: SnackPosition.BOTTOM);
     }
   }
 
@@ -640,7 +642,7 @@ class MatchController extends GetxController {
     ));
     if (!chatOpen.value) {
       Get.snackbar(
-        '新文字讯息',
+        '新文字讯息'.tr,
         toastPreview(text),
         snackPosition: SnackPosition.BOTTOM,
         mainButton: TextButton(
@@ -648,7 +650,7 @@ class MatchController extends GetxController {
             chatOpen.value = true;
             Get.closeCurrentSnackbar();
           },
-          child: const Text('查看'),
+          child: Text('查看'.tr),
         ),
       );
     }
@@ -744,7 +746,7 @@ class MatchController extends GetxController {
         await api.unfollowUser(user.id);
         followedUserIds.remove(user.id);
         followedUsers.removeWhere((item) => item.id == user.id);
-        Get.snackbar('已取消关注', user.displayName,
+        Get.snackbar('已取消关注'.tr, user.displayName,
             snackPosition: SnackPosition.BOTTOM);
         return;
       }
@@ -753,7 +755,7 @@ class MatchController extends GetxController {
       if (!followedUsers.any((item) => item.id == user.id)) {
         followedUsers.insert(0, user);
       }
-      Get.snackbar('已关注', '${user.displayName} 已加入 Lounge 顶部的我的关注',
+      Get.snackbar('已关注'.tr, '${user.displayName} ${'已加入 Lounge 顶部的我的关注'.tr}',
           snackPosition: SnackPosition.BOTTOM);
     } catch (error) {
       showError(error);
@@ -765,24 +767,24 @@ class MatchController extends GetxController {
     try {
       final sent = await Get.dialog<bool>(
         AlertDialog(
-          title: Text('私信 ${user.displayName}'),
+          title: Text('私信 @name'.trParams({'name': user.displayName})),
           content: TextField(
             controller: input,
             maxLength: 240,
             maxLines: 4,
-            decoration: const InputDecoration(
-              hintText: '先打个招呼...',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              hintText: '先打个招呼...'.tr,
+              border: const OutlineInputBorder(),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Get.back(result: false),
-              child: const Text('取消'),
+              child: Text('取消'.tr),
             ),
             FilledButton(
               onPressed: () => Get.back(result: true),
-              child: const Text('发送'),
+              child: Text('发送'.tr),
             ),
           ],
         ),
@@ -793,7 +795,7 @@ class MatchController extends GetxController {
           userId: user.id,
           text: truncateText(input.text.trim(), 240),
         );
-        Get.snackbar('私信已送出', '对方下次打开 Lounge 可接入收件箱',
+        Get.snackbar('私信已送出'.tr, '对方下次打开 Lounge 可接入收件箱'.tr,
             snackPosition: SnackPosition.BOTTOM);
       }
     } catch (error) {
@@ -827,7 +829,8 @@ class MatchController extends GetxController {
     await initInAppPurchase();
     final product = _premiumProduct;
     if (!iapAvailable.value || product == null) {
-      throw Exception('Apple IAP 尚未就绪，请确认 App Store Connect 商品 premium_monthly 已建立');
+      throw Exception(
+          'Apple IAP 尚未就绪，请确认 App Store Connect 商品 premium_monthly 已建立'.tr);
     }
     final param = PurchaseParam(productDetails: product);
     final started = await InAppPurchase.instance.buyNonConsumable(
@@ -835,7 +838,7 @@ class MatchController extends GetxController {
     );
     if (!started) {
       paymentLoading.value = false;
-      throw Exception('无法启动 Apple 购买流程');
+      throw Exception('无法启动 Apple 购买流程'.tr);
     }
   }
 
@@ -843,7 +846,7 @@ class MatchController extends GetxController {
     final order = await api.createPaymentOrder(plan: plan);
     await api.confirmPaymentOrder(order.id);
     await loadCommerceStatus();
-    Get.snackbar('会员已开通', '已加入优先队列，并赠送 300 Gems',
+    Get.snackbar('会员已开通'.tr, '已加入优先队列，并赠送 300 Gems'.tr,
         snackPosition: SnackPosition.BOTTOM);
   }
 
@@ -856,7 +859,7 @@ class MatchController extends GetxController {
       }
       if (purchase.status == PurchaseStatus.error) {
         paymentLoading.value = false;
-        showError(purchase.error?.message ?? 'Apple 购买失败');
+        showError(purchase.error?.message ?? 'Apple 购买失败'.tr);
         continue;
       }
       if (purchase.status == PurchaseStatus.canceled) {
@@ -870,11 +873,10 @@ class MatchController extends GetxController {
           commerceStatus.value = await api.verifyApplePurchase(
             productId: purchase.productID,
             purchaseId: purchase.purchaseID ?? '',
-            verificationData:
-                purchase.verificationData.serverVerificationData,
+            verificationData: purchase.verificationData.serverVerificationData,
             source: purchase.verificationData.source,
           );
-          Get.snackbar('会员已开通', 'Apple IAP 验证通过，权益已同步',
+          Get.snackbar('会员已开通'.tr, 'Apple IAP 验证通过，权益已同步'.tr,
               snackPosition: SnackPosition.BOTTOM);
         } catch (error) {
           showError(error);
@@ -895,7 +897,7 @@ class MatchController extends GetxController {
     try {
       await api.reportUser(peerId);
       reportedPeerId = peerId;
-      Get.snackbar('已收到举报', '我们会保留记录供后续处理',
+      Get.snackbar('已收到举报'.tr, '我们会保留记录供后续处理'.tr,
           snackPosition: SnackPosition.BOTTOM);
     } catch (error) {
       showError(error);
@@ -909,14 +911,13 @@ class MatchController extends GetxController {
     if (peerId == null || safetyLoading.value) return;
     final confirmed = await Get.dialog<bool>(
       AlertDialog(
-        title: const Text('拉黑并结束'),
-        content: const Text('之后不会再匹配到这个用户。'),
+        title: Text('拉黑并结束'.tr),
+        content: Text('之后不会再匹配到这个用户。'.tr),
         actions: [
           TextButton(
-              onPressed: () => Get.back(result: false),
-              child: const Text('取消')),
+              onPressed: () => Get.back(result: false), child: Text('取消'.tr)),
           FilledButton(
-              onPressed: () => Get.back(result: true), child: const Text('拉黑')),
+              onPressed: () => Get.back(result: true), child: Text('拉黑'.tr)),
         ],
       ),
     );
@@ -926,7 +927,7 @@ class MatchController extends GetxController {
       await api.blockUser(peerId);
       closeSocket();
       stopMedia();
-      resetCall('已拉黑对方，不会再匹配到此用户');
+      resetCall('已拉黑对方，不会再匹配到此用户'.tr);
       await loadBlockedUsers();
     } catch (error) {
       showError(error);
@@ -951,7 +952,8 @@ class MatchController extends GetxController {
     try {
       await api.unblockUser(userId);
       blockedUsers.removeWhere((item) => item.user.id == userId);
-      Get.snackbar('已解除拉黑', '未来可能再次匹配到对方', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('已解除拉黑'.tr, '未来可能再次匹配到对方'.tr,
+          snackPosition: SnackPosition.BOTTOM);
     } catch (error) {
       showError(error);
     }
@@ -993,35 +995,35 @@ class MatchController extends GetxController {
   String regionLabel(String value) {
     switch (value) {
       case 'nearby':
-        return '附近';
+        return '附近'.tr;
       case 'asia':
-        return '亚洲';
+        return '亚洲'.tr;
       case 'europe':
-        return '欧洲';
+        return '欧洲'.tr;
       case 'america':
-        return '美洲';
+        return '美洲'.tr;
       default:
-        return '全球';
+        return '全球'.tr;
     }
   }
 
   String get genderPreferenceLabel {
     switch (genderPreference.value) {
       case GenderPreference.female:
-        return '女生';
+        return '女生'.tr;
       case GenderPreference.male:
-        return '男生';
+        return '男生'.tr;
       case GenderPreference.everyone:
-        return '不限';
+        return '不限'.tr;
     }
   }
 
   String get translationLanguageLabel {
     switch (translationLanguage.value) {
       case TranslationLanguage.off:
-        return '关闭';
+        return '关闭'.tr;
       case TranslationLanguage.zh:
-        return '中文';
+        return '中文'.tr;
       case TranslationLanguage.en:
         return 'English';
       case TranslationLanguage.ja:
@@ -1046,11 +1048,12 @@ class MatchController extends GetxController {
         value.trim().isEmpty) {
       return '';
     }
-    return '已翻译为 $translationLanguageLabel：$value';
+    return '已翻译为 @language：@text'
+        .trParams({'language': translationLanguageLabel, 'text': value});
   }
 
   void showError(Object error) {
     errorText = api.userMessage(error);
-    Get.snackbar('操作失败', errorText, snackPosition: SnackPosition.BOTTOM);
+    Get.snackbar('操作失败'.tr, errorText, snackPosition: SnackPosition.BOTTOM);
   }
 }

@@ -20,19 +20,19 @@ class DiscoverPage extends GetView<MatchController> {
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Lounge',
-                          style: TextStyle(
+                          'Lounge'.tr,
+                          style: const TextStyle(
                               fontSize: 28, fontWeight: FontWeight.w900),
                         ),
-                        SizedBox(height: 3),
+                        const SizedBox(height: 3),
                         Text(
-                          '浏览资料、关注、私信，再进入 1v1 连线',
-                          style: TextStyle(
+                          '浏览资料、关注、私信，再进入 1v1 连线'.tr,
+                          style: const TextStyle(
                             color: Colors.white70,
                             fontWeight: FontWeight.w700,
                           ),
@@ -41,7 +41,7 @@ class DiscoverPage extends GetView<MatchController> {
                     ),
                   ),
                   IconButton.filledTonal(
-                    tooltip: '刷新',
+                    tooltip: '刷新'.tr,
                     onPressed: controller.discoverLoading.value
                         ? null
                         : controller.loadDiscoverProfiles,
@@ -87,15 +87,16 @@ class _FollowedSection extends GetView<MatchController> {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  '我的关注',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                  '我的关注'.tr,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w900),
                 ),
               ),
               TextButton(
                 onPressed: controller.loadDiscoverProfiles,
-                child: const Text('同步'),
+                child: Text('同步'.tr),
               ),
             ],
           ),
@@ -145,7 +146,10 @@ class _FollowedSection extends GetView<MatchController> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          user.interests.take(2).join(' · '),
+                          user.interests
+                              .take(2)
+                              .map((item) => item.tr)
+                              .join(' · '),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -187,16 +191,16 @@ class _DiscoverFilters extends GetView<MatchController> {
               children: [
                 Expanded(
                   child: Obx(() => SegmentedButton<MatchModePreference>(
-                        segments: const [
+                        segments: [
                           ButtonSegment(
                             value: MatchModePreference.video,
-                            icon: Icon(Icons.videocam_outlined),
-                            label: Text('视讯'),
+                            icon: const Icon(Icons.videocam_outlined),
+                            label: Text('视讯'.tr),
                           ),
                           ButtonSegment(
                             value: MatchModePreference.voice,
-                            icon: Icon(Icons.mic_none_rounded),
-                            label: Text('语音'),
+                            icon: const Icon(Icons.mic_none_rounded),
+                            label: Text('语音'.tr),
                           ),
                         ],
                         selected: {controller.matchMode.value},
@@ -214,16 +218,20 @@ class _DiscoverFilters extends GetView<MatchController> {
                         key: ValueKey(
                             'discover-region-${controller.selectedRegion.value}'),
                         initialValue: controller.selectedRegion.value,
-                        decoration: const InputDecoration(
-                          labelText: '地区',
-                          prefixIcon: Icon(Icons.public_rounded),
+                        decoration: InputDecoration(
+                          labelText: '地区'.tr,
+                          prefixIcon: const Icon(Icons.public_rounded),
                         ),
-                        items: const [
-                          DropdownMenuItem(value: 'global', child: Text('全球')),
-                          DropdownMenuItem(value: 'nearby', child: Text('附近')),
-                          DropdownMenuItem(value: 'asia', child: Text('亚洲')),
-                          DropdownMenuItem(value: 'europe', child: Text('欧洲')),
-                          DropdownMenuItem(value: 'america', child: Text('美洲')),
+                        items: [
+                          DropdownMenuItem(
+                              value: 'global', child: Text('全球'.tr)),
+                          DropdownMenuItem(
+                              value: 'nearby', child: Text('附近'.tr)),
+                          DropdownMenuItem(value: 'asia', child: Text('亚洲'.tr)),
+                          DropdownMenuItem(
+                              value: 'europe', child: Text('欧洲'.tr)),
+                          DropdownMenuItem(
+                              value: 'america', child: Text('美洲'.tr)),
                         ],
                         onChanged: (value) {
                           if (value == null) return;
@@ -238,22 +246,22 @@ class _DiscoverFilters extends GetView<MatchController> {
                         key: ValueKey(
                             'discover-gender-${controller.genderPreference.value.name}'),
                         initialValue: controller.genderPreference.value,
-                        decoration: const InputDecoration(
-                          labelText: '对象',
-                          prefixIcon: Icon(Icons.tune_rounded),
+                        decoration: InputDecoration(
+                          labelText: '对象'.tr,
+                          prefixIcon: const Icon(Icons.tune_rounded),
                         ),
-                        items: const [
+                        items: [
                           DropdownMenuItem(
                             value: GenderPreference.everyone,
-                            child: Text('不限'),
+                            child: Text('不限'.tr),
                           ),
                           DropdownMenuItem(
                             value: GenderPreference.female,
-                            child: Text('女生'),
+                            child: Text('女生'.tr),
                           ),
                           DropdownMenuItem(
                             value: GenderPreference.male,
-                            child: Text('男生'),
+                            child: Text('男生'.tr),
                           ),
                         ],
                         onChanged: (value) {
@@ -307,15 +315,15 @@ class _EmptyDiscover extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  loading ? '正在整理资料卡' : '还没有可探索的资料',
+                  loading ? '正在整理资料卡'.tr : '还没有可探索的资料'.tr,
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  '保存资料或稍后刷新，再开始随机连接。',
+                Text(
+                  '保存资料或稍后刷新，再开始随机连接。'.tr,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white70),
                 ),
@@ -339,7 +347,7 @@ class _ProfileCard extends GetView<MatchController> {
     final displayName = _discoverDisplayName(user);
     final initial = displayName.trim().isNotEmpty
         ? displayName.trim().characters.first.toUpperCase()
-        : '星';
+        : '星球旅人'.tr.characters.first.toUpperCase();
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: DecoratedBox(
@@ -395,7 +403,7 @@ class _ProfileCard extends GetView<MatchController> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${controller.regionLabel(user.region)} · ${user.bio.isEmpty ? '愿意认识新朋友' : user.bio}',
+                          '${controller.regionLabel(user.region)} · ${user.bio.isEmpty ? '愿意认识新朋友'.tr : user.bio}',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -427,7 +435,7 @@ class _ProfileCard extends GetView<MatchController> {
                       icon: followed
                           ? Icons.favorite_rounded
                           : Icons.favorite_border_rounded,
-                      label: followed ? '已关注' : '关注',
+                      label: followed ? '已关注'.tr : '关注'.tr,
                       selected: followed,
                       onTap: () => controller.toggleFollow(user),
                     ),
@@ -436,7 +444,7 @@ class _ProfileCard extends GetView<MatchController> {
                   Expanded(
                     child: _MiniActionButton(
                       icon: Icons.mail_outline_rounded,
-                      label: '私信',
+                      label: '私信'.tr,
                       onTap: () => controller.openDirectMessage(user),
                     ),
                   ),
@@ -449,7 +457,7 @@ class _ProfileCard extends GetView<MatchController> {
                     child: OutlinedButton.icon(
                       onPressed: () => controller.dismissDiscoverProfile(user),
                       icon: const Icon(Icons.close_rounded),
-                      label: const Text('换一批'),
+                      label: Text('换一批'.tr),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -457,7 +465,7 @@ class _ProfileCard extends GetView<MatchController> {
                     child: FilledButton.icon(
                       onPressed: () => controller.startFromProfile(user),
                       icon: const Icon(Icons.videocam_outlined),
-                      label: const Text('以此偏好连接'),
+                      label: Text('以此偏好连接'.tr),
                     ),
                   ),
                 ],
@@ -475,7 +483,8 @@ String _discoverDisplayName(UserProfile user) {
   if (name.isNotEmpty && name != '星球旅人') return name;
   final id = user.id.trim().toUpperCase();
   final suffix = id.length > 4 ? id.substring(0, 4) : id;
-  return suffix.isEmpty ? '星球旅人' : '星球旅人 $suffix';
+  final baseName = '星球旅人'.tr;
+  return suffix.isEmpty ? baseName : '$baseName $suffix';
 }
 
 class _PremiumFilterNotice extends StatelessWidget {
@@ -514,14 +523,14 @@ class _PremiumFilterNotice extends StatelessWidget {
               child: Text(
                 active
                     ? hasAccess
-                        ? '已启用付费筛选 · $gems Gems 可用'
-                        : '地区/对象筛选需要 Gems 或 Premium'
-                    : '基础随机免费，精准筛选可用 Gems 解锁',
+                        ? '已启用付费筛选 · @gems Gems 可用'.trParams({'gems': '$gems'})
+                        : '地区/对象筛选需要 Gems 或 Premium'.tr
+                    : '基础随机免费，精准筛选可用 Gems 解锁'.tr,
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
             if (!hasAccess)
-              TextButton(onPressed: onUpgrade, child: const Text('开通')),
+              TextButton(onPressed: onUpgrade, child: Text('开通'.tr)),
           ],
         ),
       ),
@@ -579,7 +588,7 @@ class _InterestChip extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         child: Text(
-          label,
+          label.tr,
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
         ),
       ),

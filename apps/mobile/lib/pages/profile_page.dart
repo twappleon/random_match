@@ -55,15 +55,15 @@ class _ProfilePageState extends State<ProfilePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('匿名身份',
-                    style:
-                        TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+                Text('匿名身份'.tr,
+                    style: const TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 14),
                 TextField(
                   controller: controller.displayNameInput,
                   maxLength: 24,
                   decoration:
-                      const InputDecoration(labelText: '昵称', counterText: ''),
+                      InputDecoration(labelText: '昵称'.tr, counterText: ''),
                 ),
                 const SizedBox(height: 10),
                 TextField(
@@ -71,12 +71,12 @@ class _ProfilePageState extends State<ProfilePage> {
                   maxLength: 120,
                   maxLines: 3,
                   decoration:
-                      const InputDecoration(labelText: '简介', counterText: ''),
+                      InputDecoration(labelText: '简介'.tr, counterText: ''),
                 ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: controller.interestsInput,
-                  decoration: const InputDecoration(labelText: '兴趣标签'),
+                  decoration: InputDecoration(labelText: '兴趣标签'.tr),
                 ),
                 const SizedBox(height: 10),
                 const _InterestPicker(),
@@ -85,16 +85,17 @@ class _ProfilePageState extends State<ProfilePage> {
                       key: ValueKey(
                           'profile-region-${controller.selectedRegion.value}'),
                       initialValue: controller.selectedRegion.value,
-                      decoration: const InputDecoration(
-                        labelText: '常用地区',
-                        prefixIcon: Icon(Icons.public_rounded),
+                      decoration: InputDecoration(
+                        labelText: '常用地区'.tr,
+                        prefixIcon: const Icon(Icons.public_rounded),
                       ),
-                      items: const [
-                        DropdownMenuItem(value: 'global', child: Text('全球')),
-                        DropdownMenuItem(value: 'nearby', child: Text('附近')),
-                        DropdownMenuItem(value: 'asia', child: Text('亚洲')),
-                        DropdownMenuItem(value: 'europe', child: Text('欧洲')),
-                        DropdownMenuItem(value: 'america', child: Text('美洲')),
+                      items: [
+                        DropdownMenuItem(value: 'global', child: Text('全球'.tr)),
+                        DropdownMenuItem(value: 'nearby', child: Text('附近'.tr)),
+                        DropdownMenuItem(value: 'asia', child: Text('亚洲'.tr)),
+                        DropdownMenuItem(value: 'europe', child: Text('欧洲'.tr)),
+                        DropdownMenuItem(
+                            value: 'america', child: Text('美洲'.tr)),
                       ],
                       onChanged: (value) {
                         if (value != null) {
@@ -107,14 +108,15 @@ class _ProfilePageState extends State<ProfilePage> {
                       key: ValueKey(
                           'profile-gender-${controller.profileGender.value}'),
                       initialValue: controller.profileGender.value,
-                      decoration: const InputDecoration(
-                        labelText: '性别显示',
-                        prefixIcon: Icon(Icons.badge_outlined),
+                      decoration: InputDecoration(
+                        labelText: '性别显示'.tr,
+                        prefixIcon: const Icon(Icons.badge_outlined),
                       ),
-                      items: const [
-                        DropdownMenuItem(value: 'private', child: Text('不公开')),
-                        DropdownMenuItem(value: 'female', child: Text('女生')),
-                        DropdownMenuItem(value: 'male', child: Text('男生')),
+                      items: [
+                        DropdownMenuItem(
+                            value: 'private', child: Text('不公开'.tr)),
+                        DropdownMenuItem(value: 'female', child: Text('女生'.tr)),
+                        DropdownMenuItem(value: 'male', child: Text('男生'.tr)),
                       ],
                       onChanged: (value) {
                         if (value != null) {
@@ -127,9 +129,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       key: ValueKey(
                           'profile-language-${controller.profileLanguage.value}'),
                       initialValue: controller.profileLanguage.value,
-                      decoration: const InputDecoration(
-                        labelText: '常用语言',
-                        prefixIcon: Icon(Icons.translate_rounded),
+                      decoration: InputDecoration(
+                        labelText: '常用语言'.tr,
+                        prefixIcon: const Icon(Icons.translate_rounded),
                       ),
                       items: const [
                         DropdownMenuItem(value: 'zh', child: Text('中文')),
@@ -167,7 +169,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               controller.ageConfirmed.value = value ?? false,
                           contentPadding:
                               const EdgeInsets.symmetric(horizontal: 8),
-                          title: const Text('我已满 18 岁并同意文明视讯'),
+                          title: Text('我已满 18 岁并同意文明视讯'.tr),
                         ),
                       ),
                     )),
@@ -179,7 +181,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     children: [
                       FilledButton(
                         onPressed: saving ? null : controller.saveProfile,
-                        child: Text(saving ? '保存中' : '保存资料'),
+                        child: Text(saving ? '保存中'.tr : '保存资料'.tr),
                       ),
                       if (controller.ageConfirmed.value) ...[
                         const SizedBox(height: 8),
@@ -191,7 +193,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   controller.switchPage(AppPage.video);
                                 },
                           icon: const Icon(Icons.videocam_outlined),
-                          label: const Text('保存并返回视讯'),
+                          label: Text('保存并返回视讯'.tr),
                         ),
                       ],
                     ],
@@ -207,15 +209,15 @@ class _ProfilePageState extends State<ProfilePage> {
               children: [
                 Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('拉黑名单',
-                              style: TextStyle(
+                          Text('拉黑名单'.tr,
+                              style: const TextStyle(
                                   fontSize: 18, fontWeight: FontWeight.w900)),
-                          Text('解除后未来可能再次匹配到对方',
-                              style: TextStyle(color: Colors.white70)),
+                          Text('解除后未来可能再次匹配到对方'.tr,
+                              style: const TextStyle(color: Colors.white70)),
                         ],
                       ),
                     ),
@@ -223,16 +225,17 @@ class _ProfilePageState extends State<ProfilePage> {
                           onPressed: controller.blockedLoading.value
                               ? null
                               : controller.loadBlockedUsers,
-                          child: Text(
-                              controller.blockedLoading.value ? '读取中' : '刷新'),
+                          child: Text(controller.blockedLoading.value
+                              ? '读取中'.tr
+                              : '刷新'.tr),
                         )),
                   ],
                 ),
                 const SizedBox(height: 10),
                 Obx(() {
                   if (controller.blockedUsers.isEmpty) {
-                    return const Text('目前没有拉黑对象',
-                        style: TextStyle(color: Colors.white70));
+                    return Text('目前没有拉黑对象'.tr,
+                        style: const TextStyle(color: Colors.white70));
                   }
                   return Column(
                     children: controller.blockedUsers.map((item) {
@@ -263,11 +266,11 @@ class _ProfilePageState extends State<ProfilePage> {
                               ),
                               title: Text(user.displayName),
                               subtitle: Text(
-                                  user.bio.isEmpty ? '已拉黑用户' : user.bio),
+                                  user.bio.isEmpty ? '已拉黑用户'.tr : user.bio),
                               trailing: TextButton(
                                 onPressed: () =>
                                     controller.unblockUser(user.id),
-                                child: const Text('解除'),
+                                child: Text('解除'.tr),
                               ),
                             ),
                           ),
@@ -300,7 +303,7 @@ class _InterestPicker extends GetView<MatchController> {
           final active = selected.contains(item);
           return FilterChip(
             selected: active,
-            label: Text(item),
+            label: Text(item.tr),
             onSelected: (_) => controller.toggleInterest(item),
             selectedColor: const Color(0xff20c8ff).withValues(alpha: 0.22),
             checkmarkColor: const Color(0xff20c8ff),

@@ -10,8 +10,8 @@ class PeerBar extends GetView<MatchController> {
   Widget build(BuildContext context) {
     return Obx(() {
       final peer = controller.peerProfile.value;
-      final name = peer?.displayName ?? '对方资料载入中';
-      final bio = peer?.bio.isNotEmpty == true ? peer!.bio : '对方暂时没有填写简介';
+      final name = peer?.displayName ?? '对方资料载入中'.tr;
+      final bio = peer?.bio.isNotEmpty == true ? peer!.bio : '对方暂时没有填写简介'.tr;
       final initial = name.trim().isNotEmpty
           ? name.trim().characters.first.toUpperCase()
           : '星';
@@ -67,7 +67,7 @@ class PeerBar extends GetView<MatchController> {
                 const SizedBox(width: 4),
                 IconButton(
                   visualDensity: VisualDensity.compact,
-                  tooltip: '关注',
+                  tooltip: '关注'.tr,
                   onPressed: () => controller.toggleFollow(peer),
                   icon: Icon(
                     controller.followedUserIds.contains(peer.id)
@@ -81,7 +81,7 @@ class PeerBar extends GetView<MatchController> {
                 visualDensity: VisualDensity.compact,
                 onPressed: () => controller.peerCardHidden.value = true,
                 icon: const Icon(Icons.close, size: 20),
-                tooltip: '隐藏',
+                tooltip: '隐藏'.tr,
               ),
             ],
           ),

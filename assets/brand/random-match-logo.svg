@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Random Match logo">
+  <defs>
+    <radialGradient id="bgGlow" cx="29%" cy="20%" r="86%">
+      <stop offset="0" stop-color="#3342ff"/>
+      <stop offset="0.34" stop-color="#0e1b3f"/>
+      <stop offset="0.68" stop-color="#062a31"/>
+      <stop offset="1" stop-color="#081013"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="150" y1="96" x2="886" y2="934" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6efcff"/>
+      <stop offset="0.48" stop-color="#8c5cff"/>
+      <stop offset="1" stop-color="#ff4fa3"/>
+    </linearGradient>
+    <linearGradient id="camera" x1="242" y1="292" x2="816" y2="716" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.52" stop-color="#e9fbff"/>
+      <stop offset="1" stop-color="#c8ecff"/>
+    </linearGradient>
+    <radialGradient id="lens" cx="36%" cy="28%" r="78%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.18" stop-color="#62ffe6"/>
+      <stop offset="0.48" stop-color="#2a8dff"/>
+      <stop offset="0.78" stop-color="#9c5cff"/>
+      <stop offset="1" stop-color="#ff4f98"/>
+    </radialGradient>
+    <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="36" stdDeviation="36" flood-color="#000000" flood-opacity="0.38"/>
+    </filter>
+    <filter id="neon" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" rx="228" fill="url(#bgGlow)"/>
+  <path d="M132 824 C274 650 378 620 526 714 C651 793 744 744 897 554" fill="none" stroke="#3fffe0" stroke-width="20" stroke-linecap="round" opacity="0.36" filter="url(#neon)"/>
+  <path d="M138 218 C300 394 456 426 622 326 C727 263 805 252 900 302" fill="none" stroke="#ff5fac" stroke-width="18" stroke-linecap="round" opacity="0.30" filter="url(#neon)"/>
+  <circle cx="247" cy="239" r="34" fill="#4dffee" opacity="0.95"/>
+  <circle cx="784" cy="761" r="38" fill="#ff5fac" opacity="0.95"/>
+  <circle cx="760" cy="226" r="13" fill="#ffffff" opacity="0.82"/>
+  <path d="M846 418 l15 34 36 13 -36 13 -15 35 -15 -35 -36 -13 36 -13z" fill="#ffffff" opacity="0.88"/>
+  <path d="M234 628 l11 25 27 10 -27 10 -11 26 -11 -26 -27 -10 27 -10z" fill="#77fff0" opacity="0.88"/>
+
+  <g filter="url(#shadow)">
+    <rect x="222" y="280" width="470" height="392" rx="128" fill="url(#camera)"/>
+    <path d="M663 393 L823 300 C862 277 912 306 912 351 V601 C912 646 862 675 823 652 L663 559 Z" fill="url(#camera)"/>
+    <path d="M258 326 C330 292 573 294 640 326" fill="none" stroke="#ffffff" stroke-width="28" stroke-linecap="round" opacity="0.74"/>
+    <circle cx="463" cy="476" r="141" fill="url(#rim)" opacity="0.96"/>
+    <circle cx="463" cy="476" r="113" fill="url(#lens)"/>
+    <circle cx="463" cy="476" r="55" fill="#091114" opacity="0.94"/>
+    <circle cx="419" cy="424" r="24" fill="#ffffff" opacity="0.82"/>
+    <path d="M568 374 C628 431 628 523 568 580" fill="none" stroke="#091114" stroke-width="32" stroke-linecap="round" opacity="0.72"/>
+    <path d="M348 391 C300 444 300 508 348 561" fill="none" stroke="#091114" stroke-width="30" stroke-linecap="round" opacity="0.72"/>
+    <circle cx="613" cy="356" r="20" fill="#091114" opacity="0.82"/>
+    <path d="M552 640 C600 598 652 598 700 640" fill="none" stroke="#7d5cff" stroke-width="18" stroke-linecap="round" opacity="0.62"/>
+  </g>
+</svg>

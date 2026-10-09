@@ -22,17 +22,20 @@ class MembershipPage extends GetView<MatchController> {
         final isMember = status?.isMember == true;
         final paymentLoading = controller.paymentLoading.value;
         final canBuy = !paymentLoading && !isMember;
-        final title = isMember ? '会员已开启' : '免费匹配额度';
+        final title = isMember ? '会员已开启'.tr : '免费匹配额度'.tr;
         final subtitle = status == null
-            ? '正在读取今日额度'
+            ? '正在读取今日额度'.tr
             : isMember
-                ? '无限匹配 · 地区/对象筛选 · 优先排队'
-                : '今日剩余 ${status.dailyRemaining}/${status.dailyLimit} 次 · 会员无限匹配并优先排队';
+                ? '无限匹配 · 地区/对象筛选 · 优先排队'.tr
+                : '今日剩余 @remaining/@limit 次 · 会员无限匹配并优先排队'.trParams({
+                    'remaining': '${status.dailyRemaining}',
+                    'limit': '${status.dailyLimit}',
+                  });
         final actionText = isMember
-            ? '已是会员'
+            ? '已是会员'.tr
             : paymentLoading
-                ? '开通中'
-                : r'$6.99/月 开通';
+                ? '开通中'.tr
+                : r'$6.99/月 开通'.tr;
 
         return ListView(
           padding: const EdgeInsets.fromLTRB(14, 16, 14, 20),
@@ -51,9 +54,9 @@ class MembershipPage extends GetView<MatchController> {
             ),
             const SizedBox(height: 12),
             _PassCard(
-              title: '优先通行',
-              subtitle: '无限匹配 + 优先队列 + 300 Gems',
-              price: isMember ? '已开通' : r'$6.99/月',
+              title: '优先通行'.tr,
+              subtitle: '无限匹配 + 优先队列 + 300 Gems'.tr,
+              price: isMember ? '已开通'.tr : r'$6.99/月'.tr,
               featured: true,
               onPressed: canBuy
                   ? () => controller.buyMembership(plan: 'premium_monthly')
@@ -61,18 +64,18 @@ class MembershipPage extends GetView<MatchController> {
             ),
             const SizedBox(height: 10),
             _PassCard(
-              title: '月度会员',
-              subtitle: '30 天会员权益，可续期叠加',
-              price: isMember ? '已拥有' : r'$6.99',
+              title: '月度会员'.tr,
+              subtitle: '30 天会员权益，可续期叠加'.tr,
+              price: isMember ? '已拥有'.tr : r'$6.99'.tr,
               onPressed: canBuy
                   ? () => controller.buyMembership(plan: 'premium_monthly')
                   : null,
             ),
             const SizedBox(height: 10),
             _PassCard(
-              title: '畅聊模式',
-              subtitle: '免费额度用完后仍可继续匹配',
-              price: isMember ? '已包含' : '会员包含',
+              title: '畅聊模式'.tr,
+              subtitle: '免费额度用完后仍可继续匹配'.tr,
+              price: isMember ? '已包含'.tr : '会员包含'.tr,
               gemColor: _pink,
               onPressed: canBuy
                   ? () => controller.buyMembership(plan: 'premium_monthly')
@@ -234,11 +237,12 @@ class _PassCard extends StatelessWidget {
                       color: _neon,
                       borderRadius: BorderRadius.circular(999),
                     ),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       child: Text(
-                        '推荐',
-                        style: TextStyle(
+                        '推荐'.tr,
+                        style: const TextStyle(
                           color: Color(0xff06150c),
                           fontSize: 11,
                           fontWeight: FontWeight.w900,
@@ -337,8 +341,11 @@ class _AccountStatusCard extends StatelessWidget {
         ? 1.0
         : (dailyUsed / dailyLimit).clamp(0.0, 1.0);
     final quotaText = isMember
-        ? '无限匹配'
-        : '今日剩余 $dailyRemaining/$dailyLimit 次';
+        ? '无限匹配'.tr
+        : '今日剩余 @remaining/@limit 次'.trParams({
+            'remaining': '$dailyRemaining',
+            'limit': '$dailyLimit',
+          });
 
     return _GlassPanel(
       padding: const EdgeInsets.all(14),
@@ -356,7 +363,7 @@ class _AccountStatusCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  isMember ? '当前权益：Match Pass' : '当前权益：免费账户',
+                  isMember ? '当前权益：Match Pass'.tr : '当前权益：免费账户'.tr,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -366,7 +373,7 @@ class _AccountStatusCard extends StatelessWidget {
               ),
               TextButton(
                 onPressed: loading ? null : onRefresh,
-                child: Text(loading ? '同步中' : '同步状态'),
+                child: Text(loading ? '同步中'.tr : '同步状态'.tr),
               ),
             ],
           ),
@@ -387,14 +394,14 @@ class _AccountStatusCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _StatusPill(label: '匹配额度', value: quotaText),
+              _StatusPill(label: '匹配额度'.tr, value: quotaText),
               _StatusPill(label: 'Gems', value: '$gemsBalance'),
               _StatusPill(
-                label: '优先队列',
-                value: isMember ? '已开启' : '未开启',
+                label: '优先队列'.tr,
+                value: isMember ? '已开启'.tr : '未开启'.tr,
               ),
               if (expiresAt != null)
-                _StatusPill(label: '到期日', value: _formatDate(expiresAt)),
+                _StatusPill(label: '到期日'.tr, value: _formatDate(expiresAt)),
             ],
           ),
         ],
@@ -456,20 +463,20 @@ class _BenefitGrid extends StatelessWidget {
     return _GlassPanel(
       padding: EdgeInsets.zero,
       child: Column(
-        children: const [
+        children: [
           _BenefitTile(
-            title: '无限随机匹配',
-            text: '不受每日免费次数限制',
+            title: '无限随机匹配'.tr,
+            text: '不受每日免费次数限制'.tr,
           ),
-          _DividerLine(),
+          const _DividerLine(),
           _BenefitTile(
-            title: '进入优先队列',
-            text: '高峰期减少等待时间',
+            title: '进入优先队列'.tr,
+            text: '高峰期减少等待时间'.tr,
           ),
-          _DividerLine(),
+          const _DividerLine(),
           _BenefitTile(
-            title: '安全加速体验',
-            text: '保留举报、拉黑和离开控制',
+            title: '安全加速体验'.tr,
+            text: '保留举报、拉黑和离开控制'.tr,
           ),
         ],
       ),
@@ -539,10 +546,10 @@ class _PaymentNote extends StatelessWidget {
         alignment: WrapAlignment.center,
         spacing: 14,
         runSpacing: 8,
-        children: const [
-          _NoteItem('安全交易'),
-          _NoteItem('加密支付'),
-          _NoteItem('可随时确认状态'),
+        children: [
+          _NoteItem('安全交易'.tr),
+          _NoteItem('加密支付'.tr),
+          _NoteItem('可随时确认状态'.tr),
         ],
       ),
     );

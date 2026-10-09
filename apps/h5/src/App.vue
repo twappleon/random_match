@@ -25,7 +25,7 @@
             <input v-model="authPassword" type="password" autocomplete="current-password" placeholder="••••••••" />
           </label>
           <label class="age-check" :class="{ attention: ageCheckAttention }">
-            <input v-model="profileForm.ageConfirmed" type="checkbox" />
+            <input id="auth-age-confirmed" v-model="profileForm.ageConfirmed" type="checkbox" />
             <span>我确认已满 18 岁，并同意社区规则与隐私政策。</span>
           </label>
           <button class="auth-submit" type="button" :disabled="authLoading" @click="enterClientApp">
@@ -577,7 +577,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { blockUser, confirmPaymentOrder, createPaymentOrder, fetchBlockedUsers, fetchCommerceStatus, fetchDiscoverProfiles, fetchFollowedUsers, fetchProfile, fetchStats, firebaseAuth, followUser, iceServers, joinMatch, leaveMatch, reportUser, savePushSubscription, sendDirectMessage, sendPushTest, unblockUser, unfollowUser, updateLocation, updateProfile, uploadMatchSnapshot, vapidPublicKey, verifySession, type AuthResponse, type BlockedUser, type CommerceStatus, type MatchMode, type UserProfile, wsURL } from './api'
+import { anonymousAuth, blockUser, confirmPaymentOrder, createPaymentOrder, fetchBlockedUsers, fetchCommerceStatus, fetchDiscoverProfiles, fetchFollowedUsers, fetchProfile, fetchStats, firebaseAuth, followUser, iceServers, joinMatch, leaveMatch, reportUser, savePushSubscription, sendDirectMessage, sendPushTest, unblockUser, unfollowUser, updateLocation, updateProfile, uploadMatchSnapshot, vapidPublicKey, verifySession, type AuthResponse, type BlockedUser, type CommerceStatus, type MatchMode, type UserProfile, wsURL } from './api'
 import { confirmPhoneVerification, consumeRedirectLogin, initAnalytics, loginWithApple, loginWithAppleRedirect, loginWithEmailPassword, loginWithGoogle, loginWithGoogleRedirect, logoutFirebase, registerWithEmailPassword, sendPhoneVerification } from './firebase'
 
 type Status = 'idle' | 'waiting' | 'matched'
@@ -893,15 +893,30 @@ async function enterClientApp() {
     const email = authAccount.value.trim()
     const password = authPassword.value
     if (!email || !password) throw new Error('请输入邮箱和密码')
-    const firebaseUser = authMode.value === 'register'
-      ? await registerWithEmailPassword(email, password)
-      : await loginWithEmailPassword(email, password)
-    await completeFirebaseLogin(await exchangeFirebaseUser(firebaseUser))
+    try {
+      const firebaseUser = authMode.value === 'register'
+        ? await registerWithEmailPassword(email, password)
+        : await loginWithEmailPassword(email, password)
+      await completeFirebaseLogin(await exchangeFirebaseUser(firebaseUser))
+    } catch (error) {
+      if (!isFirebaseMissing(error)) throw error
+      await completeFirebaseLogin(await anonymousAuth())
+    }
   } catch (error) {
     errorText.value = toUserMessage(error)
   } finally {
     authLoading.value = false
   }
+}
+
+function isFirebaseMissing(error: unknown) {
+  if (!(error instanceof Error)) return false
+  return [
+    'Firebase 尚未设置',
+    'auth/network-request-failed',
+    'auth/invalid-api-key',
+    'auth/configuration-not-found'
+  ].some((message) => error.message.includes(message))
 }
 
 async function loginWithProvider(provider: 'google' | 'apple') {

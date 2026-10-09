@@ -4,7 +4,7 @@ services:
       context: ..
       dockerfile: apps/h5/Dockerfile
       args:
-        VITE_API_BASE: ${VITE_API_BASE:-}
+        VITE_API_BASE: ${VITE_API_BASE:-https://random-match.online}
         VITE_ICE_SERVERS: ${VITE_ICE_SERVERS:-}
         VITE_FORCE_TURN: ${VITE_FORCE_TURN:-}
         VITE_VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}

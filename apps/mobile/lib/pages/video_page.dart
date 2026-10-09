@@ -77,10 +77,10 @@ class VideoPage extends GetView<MatchController> {
                       child: _AuroraStateCard(
                         controller: controller,
                         waiting: waiting,
-                        title: waiting ? '正在寻找新朋友' : '今晚遇见新朋友',
+                        title: waiting ? '正在寻找新朋友'.tr : '今晚遇见新朋友'.tr,
                         subtitle: waiting
-                            ? '保持页面开启，匹配成功后会自动进入视讯。'
-                            : '用视讯、语音、地区和对象偏好快速进入随机连线。',
+                            ? '保持页面开启，匹配成功后会自动进入视讯。'.tr
+                            : '用视讯、语音、地区和对象偏好快速进入随机连线。'.tr,
                       ),
                     ),
                   ),
@@ -217,11 +217,11 @@ class _StatsBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _AuroraStat(value: stats.online, label: '在线')),
+        Expanded(child: _AuroraStat(value: stats.online, label: '在线'.tr)),
         const SizedBox(width: 8),
-        Expanded(child: _AuroraStat(value: stats.waiting, label: '等待')),
+        Expanded(child: _AuroraStat(value: stats.waiting, label: '等待'.tr)),
         const SizedBox(width: 8),
-        Expanded(child: _AuroraStat(value: stats.chatting, label: '聊天')),
+        Expanded(child: _AuroraStat(value: stats.chatting, label: '聊天'.tr)),
       ],
     );
   }
@@ -281,8 +281,8 @@ class _ControlHandle extends StatelessWidget {
         ),
         onPressed: onPressed,
         icon: const Icon(Icons.tune_rounded, size: 18),
-        label: const Text(
-          '控制',
+        label: Text(
+          '控制'.tr,
           style: TextStyle(fontWeight: FontWeight.w900),
         ),
       ),
@@ -339,7 +339,7 @@ class _ActionDock extends StatelessWidget {
                   icon: expanded
                       ? Icons.keyboard_arrow_down_rounded
                       : Icons.tune_rounded,
-                  label: expanded ? '收起' : '设置',
+                  label: expanded ? '收起'.tr : '设置'.tr,
                   onPressed: () {
                     if (expanded && matched) {
                       controller.controlsExpanded.value = false;
@@ -356,7 +356,7 @@ class _ActionDock extends StatelessWidget {
                     icon: controller.chatOpen.value
                         ? Icons.keyboard_arrow_down_rounded
                         : Icons.chat_bubble_outline_rounded,
-                    label: controller.chatOpen.value ? '收起文字' : '文字',
+                    label: controller.chatOpen.value ? '收起文字'.tr : '文字'.tr,
                   ),
                 ),
                 const SizedBox(width: 7),
@@ -364,7 +364,7 @@ class _ActionDock extends StatelessWidget {
                   child: _DockMainButton(
                     onPressed: canBlock ? controller.blockPeer : null,
                     icon: Icons.block_rounded,
-                    label: controller.safetyLoading.value ? '处理中' : '拉黑',
+                    label: controller.safetyLoading.value ? '处理中'.tr : '拉黑'.tr,
                     dangerSoft: true,
                   ),
                 ),
@@ -382,10 +382,10 @@ class _ActionDock extends StatelessWidget {
                             ? Icons.hourglass_top_rounded
                             : Icons.auto_awesome_rounded,
                     label: matched
-                        ? '已连线'
+                        ? '已连线'.tr
                         : loading || waiting
-                            ? '匹配中'
-                            : '随机匹配',
+                            ? '匹配中'.tr
+                            : '随机匹配'.tr,
                     primary: true,
                   ),
                 ),
@@ -394,7 +394,7 @@ class _ActionDock extends StatelessWidget {
                   child: _DockMainButton(
                     onPressed: canLeave ? controller.leaveCall : null,
                     icon: Icons.logout_rounded,
-                    label: leaving ? '退出中' : '退出',
+                    label: leaving ? '退出中'.tr : '退出'.tr,
                     danger: true,
                   ),
                 ),
@@ -432,7 +432,7 @@ class _CompactSettings extends StatelessWidget {
             _PreferencePill(
               icon: matched ? Icons.lock_open_rounded : Icons.public_rounded,
               label:
-                  '${controller.matchMode.value == MatchModePreference.voice ? '语音' : '视讯'} · ${controller.regionLabel(controller.selectedRegion.value)} · ${controller.genderPreferenceLabel}',
+                  '${controller.matchMode.value == MatchModePreference.voice ? '语音'.tr : '视讯'.tr} · ${controller.regionLabel(controller.selectedRegion.value)} · ${controller.genderPreferenceLabel}',
             ),
             const SizedBox(height: 8),
             Row(
@@ -441,13 +441,13 @@ class _CompactSettings extends StatelessWidget {
                 const SizedBox(width: 8),
                 _DockIconButton(
                   icon: Icons.style_outlined,
-                  label: '探索',
+                  label: '探索'.tr,
                   onPressed: () => controller.switchPage(AppPage.discover),
                 ),
                 const SizedBox(width: 8),
                 _DockIconButton(
                   icon: Icons.workspace_premium_outlined,
-                  label: '会员',
+                  label: '会员'.tr,
                   onPressed: () => controller.switchPage(AppPage.membership),
                 ),
               ],
@@ -461,7 +461,7 @@ class _CompactSettings extends StatelessWidget {
                       selected: controller.matchMode.value ==
                           MatchModePreference.video,
                       icon: Icons.videocam_outlined,
-                      label: '视讯',
+                      label: '视讯'.tr,
                       onTap: () => controller.matchMode.value =
                           MatchModePreference.video,
                     ),
@@ -472,7 +472,7 @@ class _CompactSettings extends StatelessWidget {
                       selected: controller.matchMode.value ==
                           MatchModePreference.voice,
                       icon: Icons.mic_none_rounded,
-                      label: '语音',
+                      label: '语音'.tr,
                       onTap: () => controller.matchMode.value =
                           MatchModePreference.voice,
                     ),
@@ -515,7 +515,8 @@ class _TranslationCaption extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '实时字幕 · ${controller.translationLanguageLabel}',
+                    '实时字幕 · @language'.trParams(
+                        {'language': controller.translationLanguageLabel}),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w900),
@@ -661,18 +662,22 @@ class _TranslationSelector extends StatelessWidget {
     return DropdownButtonFormField<TranslationLanguage>(
       key: ValueKey('translation-${controller.translationLanguage.value.name}'),
       initialValue: controller.translationLanguage.value,
-      decoration: const InputDecoration(
-        labelText: '实时翻译',
-        prefixIcon: Icon(Icons.translate_rounded),
+      decoration: InputDecoration(
+        labelText: '实时翻译'.tr,
+        prefixIcon: const Icon(Icons.translate_rounded),
         isDense: true,
       ),
-      items: const [
-        DropdownMenuItem(value: TranslationLanguage.off, child: Text('关闭')),
-        DropdownMenuItem(value: TranslationLanguage.zh, child: Text('中文')),
-        DropdownMenuItem(value: TranslationLanguage.en, child: Text('English')),
-        DropdownMenuItem(value: TranslationLanguage.ja, child: Text('日本語')),
-        DropdownMenuItem(value: TranslationLanguage.ko, child: Text('한국어')),
-        DropdownMenuItem(value: TranslationLanguage.es, child: Text('Español')),
+      items: [
+        DropdownMenuItem(value: TranslationLanguage.off, child: Text('关闭'.tr)),
+        DropdownMenuItem(value: TranslationLanguage.zh, child: Text('中文'.tr)),
+        const DropdownMenuItem(
+            value: TranslationLanguage.en, child: Text('English')),
+        const DropdownMenuItem(
+            value: TranslationLanguage.ja, child: Text('日本語')),
+        const DropdownMenuItem(
+            value: TranslationLanguage.ko, child: Text('한국어')),
+        const DropdownMenuItem(
+            value: TranslationLanguage.es, child: Text('Español')),
       ],
       onChanged: (value) {
         if (value != null) controller.translationLanguage.value = value;
@@ -876,8 +881,8 @@ class _AuroraStateCard extends StatelessWidget {
               children: [
                 _AuroraChip(
                     controller.matchMode.value == MatchModePreference.voice
-                        ? '语音模式'
-                        : '视讯模式'),
+                        ? '语音模式'.tr
+                        : '视讯模式'.tr),
                 _AuroraChip(
                     controller.regionLabel(controller.selectedRegion.value)),
                 _AuroraChip(controller.genderPreferenceLabel),
@@ -889,7 +894,7 @@ class _AuroraStateCard extends StatelessWidget {
                 Expanded(
                   child: _HeroShortcut(
                     icon: Icons.style_outlined,
-                    label: '探索',
+                    label: '探索'.tr,
                     onTap: () => controller.switchPage(AppPage.discover),
                   ),
                 ),
@@ -906,7 +911,7 @@ class _AuroraStateCard extends StatelessWidget {
                 Expanded(
                   child: _HeroShortcut(
                     icon: Icons.shield_outlined,
-                    label: '安全',
+                    label: '安全'.tr,
                     onTap: () => controller.switchPage(AppPage.profile),
                   ),
                 ),

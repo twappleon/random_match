@@ -67,7 +67,7 @@ class _AuroraBottomNav extends StatelessWidget {
                 child: _AuroraNavItem(
                   selected: selectedIndex == 0,
                   icon: Icons.videocam_outlined,
-                  label: '视讯',
+                  label: '视讯'.tr,
                   onTap: () => onSelected(0),
                 ),
               ),
@@ -76,7 +76,7 @@ class _AuroraBottomNav extends StatelessWidget {
                 child: _AuroraNavItem(
                   selected: selectedIndex == 1,
                   icon: Icons.style_outlined,
-                  label: '探索',
+                  label: '探索'.tr,
                   onTap: () => onSelected(1),
                 ),
               ),
@@ -85,7 +85,7 @@ class _AuroraBottomNav extends StatelessWidget {
                 child: _AuroraNavItem(
                   selected: selectedIndex == 2,
                   icon: Icons.person_outline_rounded,
-                  label: '资料',
+                  label: '资料'.tr,
                   onTap: () => onSelected(2),
                 ),
               ),
@@ -94,7 +94,7 @@ class _AuroraBottomNav extends StatelessWidget {
                 child: _AuroraNavItem(
                   selected: selectedIndex == 3,
                   icon: Icons.workspace_premium_outlined,
-                  label: '会员',
+                  label: '会员'.tr,
                   onTap: () => onSelected(3),
                 ),
               ),
