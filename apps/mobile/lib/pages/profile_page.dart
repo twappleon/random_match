@@ -55,7 +55,7 @@ class _ProfilePageState extends State<ProfilePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('匿名身份'.tr,
+                Text('社交资料'.tr,
                     style: const TextStyle(
                         fontSize: 22, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 14),
@@ -169,7 +169,10 @@ class _ProfilePageState extends State<ProfilePage> {
                               controller.ageConfirmed.value = value ?? false,
                           contentPadding:
                               const EdgeInsets.symmetric(horizontal: 8),
-                          title: Text('我已满 18 岁并同意文明视讯'.tr),
+                          title: Text('我已满 18 岁并同意服务条款与安全规则'.tr),
+                          subtitle: Text(
+                            '禁止色情、骚扰、仇恨、自伤或 abusive users；举报内容会在 24 小时内处理。'.tr,
+                          ),
                         ),
                       ),
                     )),
@@ -192,8 +195,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                   await controller.saveProfile();
                                   controller.switchPage(AppPage.video);
                                 },
-                          icon: const Icon(Icons.videocam_outlined),
-                          label: Text('保存并返回视讯'.tr),
+                          icon: const Icon(Icons.handshake_outlined),
+                          label: Text('保存并返回连线'.tr),
                         ),
                       ],
                     ],
@@ -202,6 +205,8 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          const _SafetyPolicyPanel(),
           const SizedBox(height: 16),
           _Panel(
             child: Column(
@@ -281,6 +286,62 @@ class _ProfilePageState extends State<ProfilePage> {
                 }),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SafetyPolicyPanel extends StatelessWidget {
+  const _SafetyPolicyPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('安全与举报'.tr,
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 10),
+          _SafetyBullet('使用即表示同意 EULA 与零容忍规则。'.tr),
+          _SafetyBullet('请勿发布色情、骚扰、仇恨、自伤、诈骗或违法内容。'.tr),
+          _SafetyBullet('可随时隐藏资料、举报、封锁用户并立即离开通话。'.tr),
+          _SafetyBullet('我们会在 24 小时内处理举报，移除违规内容并限制违规用户。'.tr),
+          const SizedBox(height: 10),
+          SelectableText(
+            '安全联系：twyhleon@gmail.com'.tr,
+            style: const TextStyle(
+              color: Color(0xff63e0dc),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SafetyBullet extends StatelessWidget {
+  const _SafetyBullet(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.check_circle_outline_rounded,
+              size: 18, color: Color(0xff2fd276)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text,
+                style: const TextStyle(color: Colors.white70, height: 1.35)),
           ),
         ],
       ),

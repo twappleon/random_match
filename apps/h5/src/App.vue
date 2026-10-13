@@ -126,7 +126,7 @@
             <strong>{{ stateTitle }}</strong>
             <span>{{ stateSubtitle }}</span>
             <div class="state-chips" aria-label="match hints">
-              <span>随机视讯</span>
+              <span>兴趣社交</span>
               <span>快速连接</span>
               <span>安全操作</span>
             </div>
@@ -256,7 +256,7 @@
         <div class="profile-head">
           <div class="avatar">{{ profileInitial }}</div>
           <div>
-            <strong>匿名身份</strong>
+            <strong>社交资料</strong>
             <span>用兴趣和状态开始匹配</span>
           </div>
         </div>
@@ -316,7 +316,7 @@
               <div class="profile-head">
                 <div class="avatar">{{ item.user.displayName.trim().slice(0, 1).toUpperCase() || '星' }}</div>
                 <div>
-                  <strong>{{ item.user.displayName || '匿名用户' }}</strong>
+                  <strong>{{ item.user.displayName || '用户' }}</strong>
                   <span>{{ item.user.bio || `拉黑于 ${formatDate(item.createdAt)}` }}</span>
                 </div>
               </div>
@@ -364,7 +364,7 @@
               <option value="male">男性</option>
             </select>
           </label>
-          <p>基础随机免费，精准筛选可用 Gems 解锁</p>
+          <p>基础兴趣浏览免费，精准筛选可用 Gems 解锁</p>
         </section>
 
         <section v-if="followedUsers.length > 0" class="followed-section" aria-label="followed users">
@@ -465,7 +465,7 @@
             <span class="pass-ribbon">推荐</span>
             <span class="pass-gem">◆</span>
             <strong>优先通行</strong>
-            <small>无限匹配 + 优先队列 + 300 Gems</small>
+            <small>更多兴趣连线 + 优先队列 + 300 Gems</small>
             <b>{{ commerceStatus?.isMember ? '已开通' : '$6.99/月' }}</b>
           </button>
           <button class="pass-card" type="button" :disabled="paymentLoading || commerceStatus?.isMember" @click="buyMembership">
@@ -478,8 +478,8 @@
 
         <section class="benefits">
           <div>
-            <strong>无限随机匹配</strong>
-            <span>不受每日免费次数限制</span>
+            <strong>更多兴趣连线</strong>
+            <span>不受每日免费邀请次数限制</span>
           </div>
           <div>
             <strong>进入优先队列</strong>
@@ -502,12 +502,12 @@
     <section v-show="clientEntered && activePage === 'guide'" class="page page-shell">
       <div class="content-card guide-page" aria-label="guide">
         <div class="guide-hero">
-          <strong>Random Match 使用指南</strong>
-          <span>匿名视讯适合轻松认识新朋友，也需要清楚的安全边界和使用方式。</span>
+          <strong>Interest Match 使用指南</strong>
+          <span>兴趣社交适合轻松认识新朋友，也需要清楚的安全边界和使用方式。</span>
         </div>
         <article>
           <h2>开始视讯前</h2>
-          <p>建议先填写昵称、简介和兴趣标签，让对方知道可以从哪里展开话题。请只使用你愿意公开给陌生人看到的资料，不要在个人简介里留下电话、住址、帐号密码、支付资讯或其他敏感内容。</p>
+          <p>建议先填写昵称、简介和兴趣标签，让对方知道可以从哪里展开话题。请只使用你愿意公开给新朋友看到的资料，不要在个人简介里留下电话、住址、帐号密码、支付资讯或其他敏感内容。</p>
         </article>
         <article>
           <h2>如何保持安全</h2>
@@ -515,10 +515,10 @@
         </article>
         <article>
           <h2>会员与匹配额度</h2>
-          <p>免费用户每天有固定随机匹配次数。会员可以无限匹配，并进入优先队列，适合想减少等待时间的用户。付费前请确认你了解服务内容和当前价格。</p>
+          <p>免费用户每天有固定兴趣匹配次数。会员可以更多兴趣连线，并进入优先队列，适合想减少等待时间的用户。付费前请确认你了解服务内容和当前价格。</p>
         </article>
         <div class="guide-links">
-          <a href="/about.html" target="_blank" rel="noreferrer">关于 Random Match</a>
+          <a href="/about.html" target="_blank" rel="noreferrer">关于 Interest Match</a>
           <a href="/safety.html" target="_blank" rel="noreferrer">安全指南</a>
           <a href="/privacy.html" target="_blank" rel="noreferrer">隐私政策</a>
           <a href="/terms.html" target="_blank" rel="noreferrer">服务条款</a>
@@ -681,13 +681,13 @@ const pendingProviderProfileKey = 'pendingProviderProfile'
 
 const stateBadgeText = computed(() => status.value === 'waiting' ? 'LIVE MATCH' : 'AURORA READY')
 const stateTitle = computed(() => status.value === 'waiting' ? '正在寻找新朋友' : '今晚遇见新朋友')
-const stateSubtitle = computed(() => status.value === 'waiting' ? '保持页面开启，匹配成功后会自动进入视讯。' : '更强的氛围感，快速连接在线用户。')
+const stateSubtitle = computed(() => status.value === 'waiting' ? '保持页面开启，找到双方合适的资料后会请求确认。' : '先看兴趣、语言与地区偏好，双方同意后进入 1v1 连线。')
 
 const actionText = computed(() => {
   if (loading.value) return '匹配中'
   if (status.value === 'waiting') return '等待中'
   if (status.value === 'matched') return '已连线'
-  return '随机匹配'
+  return '兴趣匹配'
 })
 
 const localPreviewStyle = computed(() => {
@@ -707,13 +707,13 @@ const peerBio = computed(() => {
   const bio = peerProfile.value?.bio || '对方暂时没有填写简介'
   return distance ? `${distance} · ${bio}` : bio
 })
-const peerInterests = computed(() => peerProfile.value?.interests?.length ? peerProfile.value.interests : ['随机视讯'])
+const peerInterests = computed(() => peerProfile.value?.interests?.length ? peerProfile.value.interests : ['兴趣社交'])
 const membershipTitle = computed(() => commerceStatus.value?.isMember ? '会员已开启' : '免费匹配额度')
 const membershipText = computed(() => {
   const status = commerceStatus.value
   if (!status) return '正在读取今日额度'
-  if (status.isMember) return `无限匹配 · 优先排队${status.membershipExpiresAt ? ` · 到期 ${formatDate(status.membershipExpiresAt)}` : ''}`
-  return `今日剩余 ${status.dailyRemaining}/${status.dailyLimit} 次 · 会员无限匹配并优先排队`
+  if (status.isMember) return `更多兴趣连线 · 优先排队${status.membershipExpiresAt ? ` · 到期 ${formatDate(status.membershipExpiresAt)}` : ''}`
+  return `今日剩余 ${status.dailyRemaining}/${status.dailyLimit} 次 · 会员更多兴趣连线并优先排队`
 })
 const paymentButtonText = computed(() => {
   if (commerceStatus.value?.isMember) return '已是会员'
@@ -723,13 +723,13 @@ const membershipStatusTitle = computed(() => commerceStatus.value?.isMember ? '�
 const membershipStatusText = computed(() => {
   const status = commerceStatus.value
   if (!status) return '正在同步会员、Gems 和今日额度'
-  if (status.isMember) return '无限匹配、优先队列和精准筛选已开启'
-  return '免费账户保留基础随机匹配，开通后解除每日次数限制'
+  if (status.isMember) return '更多兴趣连线、优先队列和精准筛选已开启'
+  return '免费账户保留基础兴趣匹配，开通后解除每日次数限制'
 })
 const quotaLabel = computed(() => {
   const status = commerceStatus.value
   if (!status) return '同步中'
-  if (status.isMember) return '无限匹配'
+  if (status.isMember) return '更多兴趣连线'
   return `剩余 ${status.dailyRemaining}/${status.dailyLimit} 次`
 })
 const quotaProgress = computed(() => {
@@ -1596,7 +1596,7 @@ async function buyMembership() {
     const order = await createPaymentOrder(token.value)
     await confirmPaymentOrder(token.value, order.id)
     await loadCommerceStatus()
-    errorText.value = '会员已开通，可无限匹配并优先排队'
+    errorText.value = '会员已开通，可更多兴趣连线并优先排队'
   } catch (error) {
     errorText.value = toUserMessage(error)
   } finally {

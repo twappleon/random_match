@@ -39,7 +39,7 @@ export async function verifySession(token: string): Promise<boolean> {
 
 export async function anonymousAuth(): Promise<AuthResponse> {
   const res = await fetch(`${apiBase()}/api/v1/auth/anonymous`, { method: 'POST' })
-  if (!res.ok) throw new Error('匿名登录失败，请确认后端服务已启动')
+  if (!res.ok) throw new Error('登录失败，请确认后端服务已启动')
   return res.json()
 }
 
@@ -137,9 +137,9 @@ export async function joinMatch(token: string, payload: {
   if (res.status === 402) {
     const payload = await res.json().catch(() => null)
     const remaining = typeof payload?.dailyRemaining === 'number' ? payload.dailyRemaining : 0
-    throw new Error(`今日免费匹配次数已用完，剩余 ${remaining} 次。开通会员可无限匹配并优先排队`)
+    throw new Error(`今日免费匹配次数已用完，剩余 ${remaining} 次。开通会员可更多兴趣连线并优先排队`)
   }
-  if (res.status === 409) throw new Error('已跳过拉黑用户，请再点一次随机匹配')
+  if (res.status === 409) throw new Error('已跳过封锁用户，请再发起一次兴趣匹配')
   if (!res.ok && res.status !== 202) throw new Error('加入匹配失败，请稍后重试')
   return res.json()
 }

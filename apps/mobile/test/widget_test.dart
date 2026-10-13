@@ -9,10 +9,10 @@ void main() {
       const RandomMatchApp(locale: Locale('zh', 'CN')),
     );
 
-    expect(find.text('视讯'), findsWidgets);
+    expect(find.text('连线'), findsWidgets);
     expect(find.text('探索'), findsWidgets);
     expect(find.text('资料'), findsOneWidget);
     expect(find.text('会员'), findsOneWidget);
-    expect(find.text('随机匹配'), findsOneWidget);
+    expect(find.text('兴趣匹配'), findsOneWidget);
   });
 }

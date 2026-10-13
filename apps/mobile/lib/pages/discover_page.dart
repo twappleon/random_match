@@ -16,7 +16,7 @@ class DiscoverPage extends GetView<MatchController> {
           final users = controller.discoverProfiles;
           final followedUsers = controller.followedUsers;
           return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 118),
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 104),
             children: [
               Row(
                 children: [
@@ -27,11 +27,14 @@ class DiscoverPage extends GetView<MatchController> {
                         Text(
                           'Lounge'.tr,
                           style: const TextStyle(
-                              fontSize: 28, fontWeight: FontWeight.w900),
+                            fontSize: 30,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.2,
+                          ),
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          '浏览资料、关注、私信，再进入 1v1 连线'.tr,
+                          '先浏览资料、关注与私信，双方同意后进入 1v1 连线'.tr,
                           style: const TextStyle(
                             color: Colors.white70,
                             fontWeight: FontWeight.w700,
@@ -118,10 +121,9 @@ class _FollowedSection extends GetView<MatchController> {
                     width: 132,
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xcc111419),
-                      border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.12)),
-                      borderRadius: BorderRadius.circular(8),
+                      color: const Color(0xff101827),
+                      border: Border.all(color: const Color(0xff263247)),
+                      borderRadius: BorderRadius.circular(18),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -153,7 +155,7 @@ class _FollowedSection extends GetView<MatchController> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: Colors.white70,
+                            color: Color(0xffaebbd2),
                             fontSize: 11,
                             height: 1.05,
                           ),
@@ -178,12 +180,12 @@ class _DiscoverFilters extends GetView<MatchController> {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xcc111419),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-        borderRadius: BorderRadius.circular(8),
+        color: const Color(0xff101827),
+        border: Border.all(color: const Color(0xff263247)),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -299,9 +301,9 @@ class _EmptyDiscover extends StatelessWidget {
       child: Center(
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            color: const Color(0xff101827),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xff263247)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(18),
@@ -323,7 +325,7 @@ class _EmptyDiscover extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '保存资料或稍后刷新，再开始随机连接。'.tr,
+                  '保存资料或稍后刷新，再寻找兴趣相近的人。'.tr,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white70),
                 ),
@@ -352,12 +354,19 @@ class _ProfileCard extends GetView<MatchController> {
       padding: const EdgeInsets.only(bottom: 12),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xcc111419),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-          borderRadius: BorderRadius.circular(8),
+          color: const Color(0xff101827),
+          border: Border.all(color: const Color(0xff263247)),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 24,
+              offset: Offset(0, 12),
+            ),
+          ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -365,9 +374,9 @@ class _ProfileCard extends GetView<MatchController> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CircleAvatar(
-                    radius: 28,
-                    backgroundColor: const Color(0xff20c8ff),
-                    foregroundColor: const Color(0xff041018),
+                    radius: 30,
+                    backgroundColor: const Color(0xff63e0dc),
+                    foregroundColor: const Color(0xff07111f),
                     child: Text(
                       initial,
                       style: const TextStyle(
@@ -407,7 +416,7 @@ class _ProfileCard extends GetView<MatchController> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: Colors.white70,
+                            color: Color(0xffaebbd2),
                             height: 1.35,
                           ),
                         ),
@@ -427,7 +436,7 @@ class _ProfileCard extends GetView<MatchController> {
                     .map((item) => _InterestChip(item))
                     .toList(),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
@@ -456,16 +465,36 @@ class _ProfileCard extends GetView<MatchController> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => controller.dismissDiscoverProfile(user),
-                      icon: const Icon(Icons.close_rounded),
-                      label: Text('换一批'.tr),
+                      icon: const Icon(Icons.visibility_off_outlined),
+                      label: Text('隐藏资料'.tr),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: FilledButton.icon(
                       onPressed: () => controller.startFromProfile(user),
-                      icon: const Icon(Icons.videocam_outlined),
-                      label: Text('以此偏好连接'.tr),
+                      icon: const Icon(Icons.handshake_outlined),
+                      label: Text('邀请连线'.tr),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: () => controller.reportDiscoverProfile(user),
+                      icon: const Icon(Icons.flag_outlined, size: 18),
+                      label: Text('举报资料'.tr),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: () => controller.blockDiscoverProfile(user),
+                      icon: const Icon(Icons.block_rounded, size: 18),
+                      label: Text('封锁用户'.tr),
                     ),
                   ),
                 ],
@@ -506,7 +535,7 @@ class _PremiumFilterNotice extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: color.withValues(alpha: 0.28)),
       ),
       child: Padding(
@@ -525,7 +554,7 @@ class _PremiumFilterNotice extends StatelessWidget {
                     ? hasAccess
                         ? '已启用付费筛选 · @gems Gems 可用'.trParams({'gems': '$gems'})
                         : '地区/对象筛选需要 Gems 或 Premium'.tr
-                    : '基础随机免费，精准筛选可用 Gems 解锁'.tr,
+                    : '基础兴趣浏览免费，精准筛选可用 Gems 解锁'.tr,
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
@@ -563,7 +592,8 @@ class _MiniActionButton extends StatelessWidget {
                 ? const Color(0xff2fd276)
                 : Colors.white.withValues(alpha: 0.24),
           ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
         onPressed: onTap,
         icon: Icon(icon, size: 18),
@@ -582,8 +612,9 @@ class _InterestChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
+        color: const Color(0xff182132),
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xff263247)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),

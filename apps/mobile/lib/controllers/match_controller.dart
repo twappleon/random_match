@@ -38,6 +38,24 @@ const allowMockPayments = bool.fromEnvironment(
   'ALLOW_MOCK_PAYMENTS',
   defaultValue: false,
 );
+const _blockedContentTerms = [
+  'porn',
+  'sex',
+  'nude',
+  'naked',
+  'onlyfans',
+  'escort',
+  'abuse',
+  'hate',
+  'kill',
+  'suicide',
+  '色情',
+  '裸照',
+  '援交',
+  '仇恨',
+  '自杀',
+  '自殺',
+];
 
 class MatchController extends GetxController {
   MatchController({RandomMatchApi? api}) : api = api ?? RandomMatchApi();
@@ -285,6 +303,16 @@ class MatchController extends GetxController {
   }
 
   Future<void> saveProfile() async {
+    final safetyIssue = objectionableContentIssue([
+      displayNameInput.text,
+      bioInput.text,
+      interestsInput.text,
+    ]);
+    if (safetyIssue != null) {
+      Get.snackbar('内容需调整'.tr, safetyIssue,
+          snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
     savingProfile.value = true;
     try {
       await ensureAuth();
@@ -300,7 +328,7 @@ class MatchController extends GetxController {
         language: profileLanguage.value,
       );
       setProfile(next);
-      Get.snackbar('资料已保存'.tr, '新的匿名身份已更新'.tr,
+      Get.snackbar('资料已保存'.tr, '新的社交资料已更新'.tr,
           snackPosition: SnackPosition.BOTTOM);
     } catch (error) {
       showError(error);
@@ -422,7 +450,7 @@ class MatchController extends GetxController {
     final camera = await Permission.camera.request();
     final microphone = await Permission.microphone.request();
     if (!camera.isGranted || !microphone.isGranted) {
-      throw Exception('请允许相机和麦克风权限后再开始视讯匹配'.tr);
+      throw Exception('请允许相机和麦克风权限后再开始双方同意的视讯交流'.tr);
     }
   }
 
@@ -605,6 +633,12 @@ class MatchController extends GetxController {
     if (status.value != MatchStatus.matched || peerId == null || text.isEmpty) {
       return;
     }
+    final safetyIssue = objectionableContentIssue([text]);
+    if (safetyIssue != null) {
+      Get.snackbar('内容需调整'.tr, safetyIssue,
+          snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
     final message = ChatMessage(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       sender: ChatSender.self,
@@ -632,6 +666,11 @@ class MatchController extends GetxController {
     if (rawText is! String) return;
     final text = rawText.trim();
     if (text.isEmpty) return;
+    if (objectionableContentIssue([text]) != null) {
+      Get.snackbar('已过滤不当内容'.tr, '你可以举报或封锁该用户'.tr,
+          snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
     messages.add(ChatMessage(
       id: data['id'] as String? ??
           DateTime.now().microsecondsSinceEpoch.toString(),
@@ -676,6 +715,14 @@ class MatchController extends GetxController {
   String toastPreview(String value) {
     final truncated = truncateText(value, 42);
     return truncated == value ? value : '$truncated...';
+  }
+
+  String? objectionableContentIssue(Iterable<String> values) {
+    final normalized = values.join(' ').toLowerCase();
+    if (_blockedContentTerms.any(normalized.contains)) {
+      return '请移除色情、仇恨、自伤或骚扰内容。'.tr;
+    }
+    return null;
   }
 
   Future<void> loadCommerceStatus() async {
@@ -762,6 +809,41 @@ class MatchController extends GetxController {
     }
   }
 
+  Future<void> reportDiscoverProfile(UserProfile user) async {
+    if (safetyLoading.value) return;
+    safetyLoading.value = true;
+    try {
+      await ensureAuth();
+      await api.reportUser(user.id);
+      dismissDiscoverProfile(user);
+      Get.snackbar('已收到举报'.tr, '该资料已从你的 Lounge 移除'.tr,
+          snackPosition: SnackPosition.BOTTOM);
+    } catch (error) {
+      showError(error);
+    } finally {
+      safetyLoading.value = false;
+    }
+  }
+
+  Future<void> blockDiscoverProfile(UserProfile user) async {
+    if (safetyLoading.value) return;
+    safetyLoading.value = true;
+    try {
+      await ensureAuth();
+      await api.blockUser(user.id);
+      dismissDiscoverProfile(user);
+      followedUserIds.remove(user.id);
+      followedUsers.removeWhere((item) => item.id == user.id);
+      await loadBlockedUsers();
+      Get.snackbar('已拉黑用户'.tr, '该资料已从你的 Lounge 移除'.tr,
+          snackPosition: SnackPosition.BOTTOM);
+    } catch (error) {
+      showError(error);
+    } finally {
+      safetyLoading.value = false;
+    }
+  }
+
   Future<void> openDirectMessage(UserProfile user) async {
     final input = TextEditingController();
     try {
@@ -790,6 +872,12 @@ class MatchController extends GetxController {
         ),
       );
       if (sent == true && input.text.trim().isNotEmpty) {
+        final safetyIssue = objectionableContentIssue([input.text]);
+        if (safetyIssue != null) {
+          Get.snackbar('内容需调整'.tr, safetyIssue,
+              snackPosition: SnackPosition.BOTTOM);
+          return;
+        }
         await ensureAuth();
         await api.sendDirectMessage(
           userId: user.id,

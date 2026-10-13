@@ -1,6 +1,6 @@
 {
-    "name": "Random Match",
-    "short_name": "Random Match",
+    "name": "Interest Match",
+    "short_name": "Interest Match",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#101114",

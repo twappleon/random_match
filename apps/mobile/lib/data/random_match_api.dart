@@ -255,7 +255,7 @@ class RandomMatchApi {
         return '今日免费匹配次数已用完，剩余 @remaining 次。开通会员可无限匹配并优先排队'
             .trParams({'remaining': '$remaining'});
       }
-      if (error.response?.statusCode == 409) return '已跳过拉黑用户，请再点一次随机匹配'.tr;
+      if (error.response?.statusCode == 409) return '已跳过封锁用户，请再发起一次兴趣匹配'.tr;
       if (error.type == DioExceptionType.connectionError) return '无法连接后端服务'.tr;
     }
     return error.toString().replaceFirst('Exception: ', '');

@@ -2,7 +2,7 @@
 
 ## App
 
-- App name: Random Match Online
+- App name: Interest Match Online
 - Package name: `com.leon456.randommatch`
 - Play Console developer account: `开心工作者`
 - Play Console app ID: `4973277636739938108`
@@ -13,15 +13,16 @@
 ## Build
 
 - Version name: `1.0.0`
-- Version code: `7`
+- Version code: `11`
 - Release AAB: `/Users/liuleon/Documents/random_match/apps/mobile/build/app/outputs/bundle/release/app-release.aab`
+- Copied AAB: `/Users/liuleon/Documents/ChatGPT/3d 麻酱/artifacts/mobile/interest-match-v11.aab`
 - Verification APK: `/Users/liuleon/Documents/random_match/apps/mobile/build/app/outputs/flutter-apk/app-release.apk`
 
 Build command:
 
 ```sh
 cd /Users/liuleon/Documents/random_match/apps/mobile
-flutter build appbundle --release --build-name 1.0.0 --build-number 7
+flutter build appbundle --release --build-name 1.0.0 --build-number 11 --dart-define=API_BASE=https://random-match.online
 ```
 
 ## Signing
@@ -40,9 +41,11 @@ Upload certificate fingerprints:
 ## Verified Locally
 
 - `flutter analyze`: passed.
+- `flutter test`: passed.
+- Release APK startup test on Android emulator: passed, app reaches the notification permission prompt without the previous WorkManager startup crash.
 - Release APK manifest:
   - `package=com.leon456.randommatch`
-  - `versionCode=7`
+  - `versionCode=10`
   - `versionName=1.0.0`
   - `minSdk=24`
   - `targetSdk=36`
@@ -54,7 +57,9 @@ Upload certificate fingerprints:
 
 - App record was created in Safari under `开心工作者`.
 - Internal testing release `1.0.0 (7)` was uploaded and published on 2026-10-09.
-- Play Console shows build `7` as available to internal testers and not yet reviewed.
+- Local Android build `1.0.0 (11)` was generated after repositioning the app around interest profiles, language exchange, and mutual 1v1 invitations.
+- Closed testing Alpha release `1.0.0 (10)` was uploaded to Play Console and submitted for review on 2026-10-10.
+- Play Console showed `10 (1.0.0)` under review after submission.
 - Production release is blocked by Google Play's current new-app requirement:
   - publish a closed test release,
   - have at least 12 testers opt in,
@@ -67,7 +72,12 @@ Upload certificate fingerprints:
 - Support email: `twyhleon@gmail.com`
 - Category recommendation: Social
 - Ads declaration: Yes, because the app includes AdMob.
-- Target age recommendation: 18+ because random video/audio chat is adult-oriented.
+- Target age recommendation: 18+ because live voice/video and user-generated social profiles are adult-oriented.
+
+Suggested Play listing after repositioning:
+
+- Short description: `Meet people through interests, language practice, and mutual 1v1 invitations.`
+- Full description: `Interest Match Online helps adults discover new friends through shared interests, language preferences, and profile-based matching. Browse profiles, follow people, send a short message, and start voice or video only after choosing compatible preferences. Safety tools include age confirmation, report, block, and immediate exit controls.`
 
 ## Next Play Console Steps
 

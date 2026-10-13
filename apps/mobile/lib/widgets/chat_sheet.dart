@@ -14,15 +14,21 @@ class ChatSheet extends GetView<MatchController> {
           controller.activePeerId != null;
       return DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xee0d0f13),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 28)],
+          color: const Color(0xf20a1020),
+          border: Border.all(color: const Color(0xff263247)),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black45,
+              blurRadius: 30,
+              offset: Offset(0, 16),
+            )
+          ],
         ),
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 8, 4),
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 6),
               child: Row(
                 children: [
                   Expanded(
@@ -67,13 +73,18 @@ class ChatSheet extends GetView<MatchController> {
                             child: DecoratedBox(
                               decoration: BoxDecoration(
                                 color: mine
-                                    ? const Color(0xff2fd276)
-                                    : Colors.white.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(8),
+                                    ? const Color(0xff63e0dc)
+                                    : const Color(0xff182132),
+                                borderRadius: BorderRadius.only(
+                                  topLeft: const Radius.circular(18),
+                                  topRight: const Radius.circular(18),
+                                  bottomLeft: Radius.circular(mine ? 18 : 6),
+                                  bottomRight: Radius.circular(mine ? 6 : 18),
+                                ),
                               ),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 8),
+                                    horizontal: 12, vertical: 10),
                                 child: Column(
                                   crossAxisAlignment: mine
                                       ? CrossAxisAlignment.end
@@ -128,7 +139,9 @@ class ChatSheet extends GetView<MatchController> {
                         counterText: '',
                         hintText: enabled ? '输入消息...'.tr : '等待匹配后开始聊天'.tr,
                         isDense: true,
-                        border: const OutlineInputBorder(),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
                       ),
                       onSubmitted: (_) => controller.sendChatMessage(),
                     ),
@@ -136,7 +149,15 @@ class ChatSheet extends GetView<MatchController> {
                   const SizedBox(width: 8),
                   FilledButton(
                     onPressed: enabled ? controller.sendChatMessage : null,
-                    child: Text('发送'.tr),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(74, 48),
+                      backgroundColor: const Color(0xff63e0dc),
+                      foregroundColor: const Color(0xff07111f),
+                    ),
+                    child: Text(
+                      '发送'.tr,
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
                   ),
                 ],
               ),

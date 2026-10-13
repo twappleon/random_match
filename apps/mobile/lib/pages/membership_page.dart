@@ -465,8 +465,8 @@ class _BenefitGrid extends StatelessWidget {
       child: Column(
         children: [
           _BenefitTile(
-            title: '无限随机匹配'.tr,
-            text: '不受每日免费次数限制'.tr,
+            title: '更多兴趣连线'.tr,
+            text: '不受每日免费邀请次数限制'.tr,
           ),
           const _DividerLine(),
           _BenefitTile(

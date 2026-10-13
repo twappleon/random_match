@@ -49,9 +49,9 @@ class VideoPage extends GetView<MatchController> {
               ),
               const Positioned.fill(child: _AuroraScrim()),
               Positioned(
-                top: 14,
-                left: 14,
-                right: 14,
+                top: 12,
+                left: 16,
+                right: 16,
                 child: SafeArea(
                   bottom: false,
                   child: _StatsBar(stats: controller.stats.value),
@@ -60,27 +60,53 @@ class VideoPage extends GetView<MatchController> {
               if (matched && !chatOpen)
                 Positioned(
                   top: 86,
-                  left: 14,
-                  right: 14,
+                  left: 16,
+                  right: 16,
                   child: SafeArea(
                     bottom: false,
                     child: _TranslationCaption(controller: controller),
                   ),
                 ),
               if (!matched)
-                Positioned.fill(
-                  top: 96,
-                  bottom: 212,
-                  child: Center(
+                Positioned(
+                  top: 154,
+                  left: 16,
+                  right: 16,
+                  bottom: 188,
+                  child: SafeArea(
+                    top: false,
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: _AuroraStateCard(
-                        controller: controller,
-                        waiting: waiting,
-                        title: waiting ? '正在寻找新朋友'.tr : '今晚遇见新朋友'.tr,
-                        subtitle: waiting
-                            ? '保持页面开启，匹配成功后会自动进入视讯。'.tr
-                            : '用视讯、语音、地区和对象偏好快速进入随机连线。'.tr,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(height: 18),
+                          Text(
+                            'Interest Match'.tr,
+                            style: const TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '兴趣社交、语言交流和好友连线'.tr,
+                            style: const TextStyle(
+                              color: Color(0xffaebbd2),
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 28),
+                          _AuroraStateCard(
+                            controller: controller,
+                            waiting: waiting,
+                            title: waiting ? '正在寻找新朋友'.tr : '今晚遇见新朋友'.tr,
+                            subtitle: waiting
+                                ? '保持页面开启，找到双方合适的资料后会请求确认。'.tr
+                                : '先看兴趣、语言与地区偏好，双方同意后进入 1v1 连线。'.tr,
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -102,16 +128,16 @@ class VideoPage extends GetView<MatchController> {
                 ),
               if (chatOpen)
                 Positioned(
-                  left: 12,
-                  right: 12,
+                  left: 16,
+                  right: 16,
                   bottom: chatBottom,
                   height: chatHeight,
                   child: const ChatSheet(),
                 ),
               if (!chatOpen && controlsVisible)
                 Positioned(
-                  left: 12,
-                  right: 12,
+                  left: 16,
+                  right: 16,
                   bottom: 18,
                   child: SafeArea(
                     top: false,
@@ -262,21 +288,18 @@ class _ControlHandle extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: const [
-          BoxShadow(color: Colors.black54, blurRadius: 22),
-          BoxShadow(color: Color(0x337c5cff), blurRadius: 26),
-        ],
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 18)],
       ),
       child: FilledButton.icon(
         style: FilledButton.styleFrom(
           minimumSize: const Size(96, 44),
           padding: const EdgeInsets.symmetric(horizontal: 14),
-          backgroundColor: const Color(0xd9080a13),
+          backgroundColor: const Color(0xee111827),
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.14)),
-            borderRadius: BorderRadius.circular(999),
+            side: const BorderSide(color: Color(0xff2a3650)),
+            borderRadius: BorderRadius.circular(18),
           ),
         ),
         onPressed: onPressed,
@@ -315,91 +338,121 @@ class _ActionDock extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-        borderRadius: BorderRadius.circular(10),
-        color: const Color(0xd6080a13),
-        boxShadow: const [
-          BoxShadow(color: Colors.black54, blurRadius: 34),
-          BoxShadow(color: Color(0x267c5cff), blurRadius: 44),
-        ],
+        border: Border.all(color: const Color(0xff253047)),
+        borderRadius: BorderRadius.circular(22),
+        color: const Color(0xf20a1020),
+        boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 28)],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (expanded) ...[
               _CompactSettings(controller: controller, matched: matched),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
             ],
-            Row(
-              children: [
-                _DockIconButton(
-                  selected: expanded,
-                  icon: expanded
-                      ? Icons.keyboard_arrow_down_rounded
-                      : Icons.tune_rounded,
-                  label: expanded ? '收起'.tr : '设置'.tr,
-                  onPressed: () {
-                    if (expanded && matched) {
-                      controller.controlsExpanded.value = false;
-                      controller.controlsVisible.value = false;
-                      return;
-                    }
-                    controller.controlsExpanded.value = !expanded;
-                  },
-                ),
-                const SizedBox(width: 7),
-                Expanded(
-                  child: _DockMainButton(
-                    onPressed: controller.toggleChat,
-                    icon: controller.chatOpen.value
+            if (!matched)
+              Row(
+                children: [
+                  _DockIconButton(
+                    selected: expanded,
+                    icon: expanded
                         ? Icons.keyboard_arrow_down_rounded
-                        : Icons.chat_bubble_outline_rounded,
-                    label: controller.chatOpen.value ? '收起文字'.tr : '文字'.tr,
+                        : Icons.tune_rounded,
+                    label: expanded ? '收起'.tr : '设置'.tr,
+                    onPressed: () {
+                      controller.controlsExpanded.value = !expanded;
+                    },
                   ),
-                ),
-                const SizedBox(width: 7),
-                Expanded(
-                  child: _DockMainButton(
-                    onPressed: canBlock ? controller.blockPeer : null,
-                    icon: Icons.block_rounded,
-                    label: controller.safetyLoading.value ? '处理中'.tr : '拉黑'.tr,
-                    dangerSoft: true,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: waiting ? 2 : 3,
+                    child: _DockMainButton(
+                      onPressed: canStart ? controller.startMatch : null,
+                      icon: waiting
+                          ? Icons.hourglass_top_rounded
+                          : Icons.auto_awesome_rounded,
+                      label: loading || waiting ? '匹配中'.tr : '兴趣匹配'.tr,
+                      primary: true,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _DockMainButton(
-                    onPressed: canStart ? controller.startMatch : null,
-                    icon: matched
-                        ? Icons.check_rounded
-                        : waiting
-                            ? Icons.hourglass_top_rounded
-                            : Icons.auto_awesome_rounded,
-                    label: matched
-                        ? '已连线'.tr
-                        : loading || waiting
-                            ? '匹配中'.tr
-                            : '随机匹配'.tr,
-                    primary: true,
+                  if (waiting) ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _DockMainButton(
+                        onPressed: canLeave ? controller.leaveCall : null,
+                        icon: Icons.logout_rounded,
+                        label: leaving ? '退出中'.tr : '退出'.tr,
+                        danger: true,
+                      ),
+                    ),
+                  ],
+                ],
+              )
+            else ...[
+              Row(
+                children: [
+                  _DockIconButton(
+                    selected: expanded,
+                    icon: expanded
+                        ? Icons.keyboard_arrow_down_rounded
+                        : Icons.tune_rounded,
+                    label: expanded ? '收起'.tr : '设置'.tr,
+                    onPressed: () {
+                      if (expanded) {
+                        controller.controlsExpanded.value = false;
+                        controller.controlsVisible.value = false;
+                        return;
+                      }
+                      controller.controlsExpanded.value = true;
+                    },
                   ),
-                ),
-                const SizedBox(width: 7),
-                Expanded(
-                  child: _DockMainButton(
-                    onPressed: canLeave ? controller.leaveCall : null,
-                    icon: Icons.logout_rounded,
-                    label: leaving ? '退出中'.tr : '退出'.tr,
-                    danger: true,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _DockMainButton(
+                      onPressed: controller.toggleChat,
+                      icon: controller.chatOpen.value
+                          ? Icons.keyboard_arrow_down_rounded
+                          : Icons.chat_bubble_outline_rounded,
+                      label: controller.chatOpen.value ? '收起文字'.tr : '文字'.tr,
+                    ),
                   ),
-                ),
-              ],
-            ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _DockMainButton(
+                      onPressed: canBlock ? controller.blockPeer : null,
+                      icon: Icons.block_rounded,
+                      label:
+                          controller.safetyLoading.value ? '处理中'.tr : '拉黑'.tr,
+                      dangerSoft: true,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _DockMainButton(
+                      onPressed: null,
+                      icon: Icons.check_rounded,
+                      label: '已连线'.tr,
+                      primary: true,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _DockMainButton(
+                      onPressed: canLeave ? controller.leaveCall : null,
+                      icon: Icons.logout_rounded,
+                      label: leaving ? '退出中'.tr : '退出'.tr,
+                      danger: true,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -420,19 +473,19 @@ class _CompactSettings extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.055),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        color: const Color(0xff111827),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xff263247)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             _PreferencePill(
               icon: matched ? Icons.lock_open_rounded : Icons.public_rounded,
               label:
-                  '${controller.matchMode.value == MatchModePreference.voice ? '语音'.tr : '视讯'.tr} · ${controller.regionLabel(controller.selectedRegion.value)} · ${controller.genderPreferenceLabel}',
+                  '${controller.matchMode.value == MatchModePreference.voice ? '语音'.tr : '视讯'.tr} · ${controller.regionLabel(controller.selectedRegion.value)} · ${controller.genderPreferenceLabel} · ${'双方确认'.tr}',
             ),
             const SizedBox(height: 8),
             Row(
@@ -553,11 +606,12 @@ class _DockIconButton extends StatelessWidget {
         style: FilledButton.styleFrom(
           padding: EdgeInsets.zero,
           backgroundColor:
-              selected ? const Color(0xff25305a) : const Color(0xff1c2130),
+              selected ? const Color(0xff263b75) : const Color(0xff182132),
           disabledBackgroundColor: const Color(0xff171b27),
           foregroundColor: Colors.white,
           disabledForegroundColor: Colors.white54,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
         onPressed: onPressed,
         child: Column(
@@ -602,16 +656,19 @@ class _DockMainButton extends StatelessWidget {
         : danger
             ? const Color(0xffb84d5b)
             : dangerSoft
-                ? const Color(0x3dff5c74)
-                : const Color(0xff1c2130);
+                ? const Color(0xff351d2a)
+                : const Color(0xff182132);
+    final disabledBackground = dangerSoft || danger
+        ? const Color(0xff241f2a)
+        : const Color(0xff151d2c);
     return SizedBox(
       height: 52,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(16),
           gradient: primary
               ? const LinearGradient(
-                  colors: [Color(0xff7c5cff), Color(0xff20c8ff)],
+                  colors: [Color(0xff5b7cff), Color(0xff42d9d2)],
                 )
               : null,
           boxShadow: primary
@@ -622,12 +679,12 @@ class _DockMainButton extends StatelessWidget {
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             backgroundColor: primary ? Colors.transparent : background,
-            disabledBackgroundColor: const Color(0xff171b27),
+            disabledBackgroundColor: disabledBackground,
             shadowColor: Colors.transparent,
             foregroundColor: Colors.white,
-            disabledForegroundColor: Colors.white54,
+            disabledForegroundColor: const Color(0xff7f8aa1),
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           ),
           onPressed: onPressed,
           child: FittedBox(
@@ -706,9 +763,10 @@ class _ModeButton extends StatelessWidget {
       child: FilledButton.icon(
         style: FilledButton.styleFrom(
           backgroundColor:
-              selected ? const Color(0xff25305a) : const Color(0xff1c2130),
+              selected ? const Color(0xff263b75) : const Color(0xff182132),
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
         onPressed: onTap,
         icon: Icon(icon, size: 18),
@@ -728,9 +786,9 @@ class _PreferencePill extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        color: const Color(0xff182132),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xff263247)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
@@ -763,12 +821,12 @@ class _AuroraStat extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-        borderRadius: BorderRadius.circular(8),
-        color: Colors.white.withValues(alpha: 0.09),
+        border: Border.all(color: const Color(0xff263247)),
+        borderRadius: BorderRadius.circular(18),
+        color: const Color(0xdd111827),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -808,72 +866,47 @@ class _AuroraStateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xff2d3a55)),
+        borderRadius: BorderRadius.circular(28),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xff7c5cff).withValues(alpha: 0.2),
-            const Color(0xff20c8ff).withValues(alpha: 0.1),
-            Colors.white.withValues(alpha: 0.05),
+            const Color(0xff151f38),
+            const Color(0xff101827),
+            const Color(0xff0d1322),
           ],
         ),
-        color: const Color(0xbb141827),
-        boxShadow: const [
-          BoxShadow(color: Colors.black54, blurRadius: 52),
-          BoxShadow(color: Color(0x267c5cff), blurRadius: 70),
-        ],
+        boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 34)],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                border: Border.all(
-                    color: (waiting
-                            ? const Color(0xff20c8ff)
-                            : const Color(0xffc4aaff))
-                        .withValues(alpha: 0.42)),
-                borderRadius: BorderRadius.circular(999),
-                color: (waiting
-                        ? const Color(0xff20c8ff)
-                        : const Color(0xff7c5cff))
-                    .withValues(alpha: 0.18),
-              ),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-                child: Text(
-                  waiting ? 'LIVE MATCH' : 'RANDOM LIVE',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.4,
-                  ),
-                ),
-              ),
+            Icon(
+              waiting ? Icons.hourglass_top_rounded : Icons.videocam_rounded,
+              color: const Color(0xff63e0dc),
+              size: 42,
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900),
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 10),
             Text(
               subtitle,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 14,
+                color: Color(0xffaebbd2),
+                fontSize: 15,
                 fontWeight: FontWeight.w700,
                 height: 1.45,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 18),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -888,82 +921,7 @@ class _AuroraStateCard extends StatelessWidget {
                 _AuroraChip(controller.genderPreferenceLabel),
               ],
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _HeroShortcut(
-                    icon: Icons.style_outlined,
-                    label: '探索'.tr,
-                    onTap: () => controller.switchPage(AppPage.discover),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _HeroShortcut(
-                    icon: Icons.workspace_premium_outlined,
-                    label:
-                        '${controller.commerceStatus.value?.gemsBalance ?? 0} Gems',
-                    onTap: () => controller.switchPage(AppPage.membership),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _HeroShortcut(
-                    icon: Icons.shield_outlined,
-                    label: '安全'.tr,
-                    onTap: () => controller.switchPage(AppPage.profile),
-                  ),
-                ),
-              ],
-            ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HeroShortcut extends StatelessWidget {
-  const _HeroShortcut({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: onTap,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 20, color: Colors.white70),
-              const SizedBox(height: 5),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -980,7 +938,8 @@ class _AuroraChip extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        color: Colors.white.withValues(alpha: 0.11),
+        color: const Color(0xff1b263a),
+        border: Border.all(color: const Color(0xff2a3650)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),

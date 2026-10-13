@@ -33,7 +33,7 @@ class RandomMatchApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Random Match',
+      title: 'Interest Match',
       translations: AppTranslations(),
       locale: locale ?? Get.deviceLocale,
       fallbackLocale: AppTranslations.fallbackLocale,
@@ -44,12 +44,70 @@ class RandomMatchApp extends StatelessWidget {
       ],
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xff7c5cff),
+          seedColor: const Color(0xff5b7cff),
           brightness: Brightness.dark,
         ),
-        scaffoldBackgroundColor: const Color(0xff050608),
+        scaffoldBackgroundColor: const Color(0xff070b16),
+        fontFamily: 'Roboto',
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color(0xff111827),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xff263247)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xff263247)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xff62d8e8), width: 1.2),
+          ),
+          labelStyle: const TextStyle(color: Color(0xff9aa8c0)),
+          prefixIconColor: const Color(0xff9aa8c0),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            side: const BorderSide(color: Color(0xff2a3650)),
+            foregroundColor: Colors.white,
+          ),
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          height: 66,
+          backgroundColor: const Color(0xff0a1020),
+          indicatorColor: const Color(0xff5b7cff),
+          labelTextStyle: WidgetStateProperty.resolveWith(
+            (states) => TextStyle(
+              color: states.contains(WidgetState.selected)
+                  ? Colors.white
+                  : const Color(0xff8491aa),
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          iconTheme: WidgetStateProperty.resolveWith(
+            (states) => IconThemeData(
+              color: states.contains(WidgetState.selected)
+                  ? Colors.white
+                  : const Color(0xff8491aa),
+              size: 24,
+            ),
+          ),
+        ),
         snackBarTheme: SnackBarThemeData(
-          backgroundColor: const Color(0xff181b29),
+          backgroundColor: const Color(0xff111827),
           contentTextStyle: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w700,

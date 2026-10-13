@@ -8,9 +8,9 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  const title = payload.title || 'Random Match'
+  const title = payload.title || 'Interest Match'
   const options = {
-    body: payload.body || '有人上线了，可以开始随机匹配。',
+    body: payload.body || '有人上线了，可以开始兴趣匹配。',
     icon: '/icons/icon-192.png',
     badge: '/favicon.png',
     data: {
